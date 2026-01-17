@@ -32,6 +32,10 @@ export class FaceTrackingInput {
     private faceLandmarker: FaceLandmarker | null = null;
     private lastVideoTime = -1;
     
+    // Current direction (for UI feedback)
+    public currentDirX = 0;
+    public currentDirY = 0;
+    
     onCalibrated: () => void = () => {};
     onError: (error: string) => void = () => {};
 
@@ -167,6 +171,10 @@ export class FaceTrackingInput {
                         finalDirX /= length;
                         finalDirY /= length;
                     }
+
+                    // Store current direction for UI feedback
+                    this.currentDirX = finalDirX;
+                    this.currentDirY = finalDirY;
 
                     // Send input to connection
                     this.connection.setInput(finalDirX, finalDirY, false);

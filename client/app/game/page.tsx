@@ -18,6 +18,7 @@ export default function GamePage() {
     const [useFaceTracking, setUseFaceTracking] = useState(false);
     const [faceTrackingCalibrated, setFaceTrackingCalibrated] = useState(false);
     const [faceTrackingError, setFaceTrackingError] = useState<string | null>(null);
+    const [faceTrackingDirection, setFaceTrackingDirection] = useState({ x: 0, y: 0 });
 
     const connectionRef = useRef<GameConnection | null>(null);
     const inputHandlerRef = useRef<InputHandler | null>(null);
@@ -120,6 +121,17 @@ export default function GamePage() {
                 console.log('Face tracking started successfully');
                 setUseFaceTracking(true);
 
+                // Update direction indicator
+                const updateDirection = setInterval(() => {
+                    if (faceTrackingRef.current) {
+                        setFaceTrackingDirection({
+                            x: faceTrackingRef.current.currentDirX,
+                            y: faceTrackingRef.current.currentDirY
+                        });
+                    }
+                }, 50);
+                (faceTracking as any).directionInterval = updateDirection;
+
                 // Disable keyboard input
                 if (inputHandlerRef.current) {
                     inputHandlerRef.current.destroy();
@@ -133,11 +145,15 @@ export default function GamePage() {
             // Disable face tracking
             console.log('Toggling face tracking OFF');
             if (faceTrackingRef.current) {
+                if ((faceTrackingRef.current as any).directionInterval) {
+                    clearInterval((faceTrackingRef.current as any).directionInterval);
+                }
                 faceTrackingRef.current.stop();
                 faceTrackingRef.current = null;
             }
             setUseFaceTracking(false);
             setFaceTrackingCalibrated(false);
+            setFaceTrackingDirection({ x: 0, y: 0 });
 
             // Re-enable keyboard input
             if (canvasRef.current && connectionRef.current) {
@@ -163,28 +179,48 @@ export default function GamePage() {
     return (
         <div className="min-h-screen bg-gradient-to-b from-blue-900 to-blue-600 flex flex-col items-center justify-center p-4 relative">
             {/* Face Tracking Controls - Top Right */}
-            <div className="absolute top-4 right-4 flex gap-2 items-center z-10">
-                <button
-                    onClick={() => {
-                        console.log('Button clicked! useFaceTracking:', useFaceTracking);
-                        toggleFaceTracking();
-                    }}
-                    className={`px-4 py-2 rounded-lg font-semibold transition-all text-sm ${
-                        useFaceTracking
-                            ? 'bg-red-500 hover:bg-red-600'
-                            : 'bg-green-500 hover:bg-green-600'
-                    }`}
-                >
-                    {useFaceTracking ? '🎥 Disable Face Tracking' : '🎥 Enable Face Tracking'}
-                </button>
-                
-                {useFaceTracking && faceTrackingCalibrated && (
+            <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-10">
+                <div className="flex gap-2 items-center">
                     <button
-                        onClick={recalibrateFaceTracking}
-                        className="px-4 py-2 rounded-lg font-semibold bg-yellow-500 hover:bg-yellow-600 transition-all text-sm"
+                        onClick={() => {
+                            console.log('Button clicked! useFaceTracking:', useFaceTracking);
+                            toggleFaceTracking();
+                        }}
+                        className={`px-4 py-2 rounded-lg font-semibold transition-all text-sm ${
+                            useFaceTracking
+                                ? 'bg-red-500 hover:bg-red-600'
+                                : 'bg-green-500 hover:bg-green-600'
+                        }`}
                     >
-                        🎯 Recalibrate
+                        {useFaceTracking ? '🎥 Disable Face Tracking' : '🎥 Enable Face Tracking'}
                     </button>
+                    
+                    {useFaceTracking && faceTrackingCalibrated && (
+                        <button
+                            onClick={recalibrateFaceTracking}
+                            className="px-4 py-2 rounded-lg font-semibold bg-yellow-500 hover:bg-yellow-600 transition-all text-sm"
+                        >
+                            🎯 Recalibrate
+                        </button>
+                    )}
+                </div>
+
+                {/* Direction Indicator */}
+                {useFaceTracking && faceTrackingCalibrated && (
+                    <div className="bg-black/50 rounded-lg p-3 flex flex-col items-center gap-2">
+                        <div className="text-white text-xs font-semibold">Swimming Direction</div>
+                        <div className="relative w-20 h-20 bg-blue-900/50 rounded-full flex items-center justify-center">
+                            {/* Arrow pointing in movement direction */}
+                            <div 
+                                className="text-4xl transition-transform duration-100"
+                                style={{
+                                    transform: `rotate(${Math.atan2(faceTrackingDirection.y, faceTrackingDirection.x) * 180 / Math.PI + 90}deg)`,
+                                }}
+                            >
+                                ↑
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
 
