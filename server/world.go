@@ -50,13 +50,20 @@ func (w *World) GameLoop() {
 	}
 }
 
-// BroadcastLoop sends state updates to clients at 20Hz
+// BroadcastLoop sends state updates to clients at 15Hz
 func (w *World) BroadcastLoop() {
 	ticker := time.NewTicker(time.Second / BroadcastRate)
+	leaderboardTicker := time.NewTicker(time.Second) // Leaderboard at 1Hz
 	defer ticker.Stop()
+	defer leaderboardTicker.Stop()
 
-	for range ticker.C {
-		w.Broadcast()
+	for {
+		select {
+		case <-ticker.C:
+			w.Broadcast(false) // Don't include leaderboard
+		case <-leaderboardTicker.C:
+			w.Broadcast(true) // Include leaderboard
+		}
 	}
 }
 
@@ -318,7 +325,47 @@ func (w *World) SpawnFood() {
 	w.NextFoodID++
 }
 
-// Broadcast sends state to all connected clients
+// BroadcastState sends game state without leaderboard
+func (w *World) BroadcastState() {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	for _, player := range w.Players {
+		if player.Client == nil {
+			continue
+		}
+
+		// Build state without leaderboard
+		state := w.BuildStateForPlayer(player, nil)
+
+		// Send to client
+		player.Client.SendMessage(ServerMessage{
+			Type:    "state",
+			Payload: state,
+		})
+	}
+}
+
+// BroadcastLeaderboard sends leaderboard updates separately
+func (w *World) BroadcastLeaderboard() {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	leaderboard := w.GetLeaderboard()
+
+	for _, player := range w.Players {
+		if player.Client == nil {
+			continue
+		}
+
+		player.Client.SendMessage(ServerMessage{
+			Type:    "leaderboard",
+			Payload: leaderboard,
+		})
+	}
+}
+
+// Broadcast sends state to all connected clients (legacy - for compatibility)
 func (w *World) Broadcast() {
 	w.mu.RLock()
 	defer w.mu.RUnlock()

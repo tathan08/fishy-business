@@ -20,7 +20,7 @@ const (
 	ViewDistance      = 800.0 // how far players can see
 
 	// Food configuration
-	MaxFoodCount  = 500
+	MaxFoodCount  = 300
 	FoodSpawnRate = 10 // food items spawned per second
 	MinFoodSize   = 3.0
 	MaxFoodSize   = 10.0

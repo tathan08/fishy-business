@@ -82,9 +82,10 @@ type LeaderboardEntry struct {
 // Binary Protocol Implementation
 // Message Types
 const (
-	MsgTypeWelcome byte = 1
-	MsgTypeState   byte = 2
-	MsgTypePong    byte = 3
+	MsgTypeWelcome     byte = 1
+	MsgTypeState       byte = 2
+	MsgTypePong        byte = 3
+	MsgTypeLeaderboard byte = 4
 )
 
 // EncodeBinaryMessage encodes a server message into binary format
@@ -94,6 +95,8 @@ func EncodeBinaryMessage(msg ServerMessage) ([]byte, error) {
 		return encodeWelcome(msg.Payload.(WelcomePayload))
 	case "state":
 		return encodeGameState(msg.Payload.(GameStatePayload))
+	case "leaderboard":
+		return encodeLeaderboard(msg.Payload.([]LeaderboardEntry))
 	case "pong":
 		return []byte{MsgTypePong}, nil
 	default:
@@ -220,6 +223,18 @@ func encodeLeaderboardEntry(buf []byte, entry LeaderboardEntry) []byte {
 	buf = appendString(buf, entry.Name)
 	buf = appendUint32(buf, uint32(entry.Score))
 	return buf
+}
+
+func encodeLeaderboard(entries []LeaderboardEntry) ([]byte, error) {
+	buf := make([]byte, 0, len(entries)*32)
+	buf = append(buf, MsgTypeLeaderboard)
+	buf = append(buf, byte(len(entries)))
+	
+	for _, entry := range entries {
+		buf = encodeLeaderboardEntry(buf, entry)
+	}
+	
+	return buf, nil
 }
 
 // Helper functions
