@@ -12,9 +12,13 @@ func main() {
 	// Start the game loop
 	world.Start()
 
+	// Create the racing world
+	racingWorld := NewRacingWorld()
+
 	// Setup HTTP routes
 	http.HandleFunc("/ws", HandleWebSocket(world))        // Primary: position updates
 	http.HandleFunc("/ws/meta", HandleMetaWebSocket(world)) // Secondary: metadata
+	http.HandleFunc("/ws/racing", HandleRacingWebSocket(racingWorld)) // Racing game
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Fishy Business Server Running"))
 	})
@@ -25,6 +29,7 @@ func main() {
 	log.Printf("WebSocket endpoints:")
 	log.Printf("  - Primary:  ws://localhost%s/ws", port)
 	log.Printf("  - Metadata: ws://localhost%s/ws/meta", port)
+	log.Printf("  - Racing:   ws://localhost%s/ws/racing", port)
 
 	if err := http.ListenAndServe(port, nil); err != nil {
 		log.Fatal("Server error:", err)

@@ -12,12 +12,20 @@ export default function Home() {
         <p className="text-xl text-blue-100 mb-8">
           Eat or be eaten in the ocean
         </p>
-        <Link
-          href="/join"
-          className="inline-block bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-bold text-2xl px-12 py-4 rounded-full shadow-lg transition-all transform hover:scale-105"
-        >
-          PLAY
-        </Link>
+        <div className="space-y-4">
+          <Link
+            href="/join"
+            className="block bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-bold text-2xl px-12 py-4 rounded-full shadow-lg transition-all transform hover:scale-105"
+          >
+            PLAY BATTLE
+          </Link>
+          <Link
+            href="/racing"
+            className="block bg-green-400 hover:bg-green-500 text-blue-900 font-bold text-2xl px-12 py-4 rounded-full shadow-lg transition-all transform hover:scale-105"
+          >
+            🏁 FISH RACING
+          </Link>
+        </div>
       </div>
     </div>
   );
