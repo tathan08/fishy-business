@@ -56,6 +56,7 @@ type RacingPlayer struct {
 	FinishTime    float64   // Time taken to finish (in seconds)
 	Finished      bool
 	Ready         bool      // Player has clicked ready
+	LastUpdate    time.Time // Last time we received a state update
 }
 
 // RaceResult stores the final result for a player
@@ -283,12 +284,35 @@ func (r *Race) RaceLoop() {
 	ticker := time.NewTicker(100 * time.Millisecond) // Broadcast every 100ms
 	defer ticker.Stop()
 	
-	for r.State == RaceStateRacing {
+	for {
 		<-ticker.C
-		r.BroadcastState()
 		
 		// Check if race should end
 		r.mu.Lock()
+		if r.State != RaceStateRacing {
+			r.mu.Unlock()
+			break
+		}
+        
+		// Auto-finish players who stall near the end
+		for _, player := range r.Players {
+			if !player.Finished && player.Progress >= 0.96 && !player.LastUpdate.IsZero() {
+				if time.Since(player.LastUpdate) > 3*time.Second {
+					player.Finished = true
+					player.FinishTime = time.Since(r.StartTime).Seconds()
+					log.Printf("Auto-finishing player %s at %.0f%% after stall", player.ID, player.Progress*100)
+					r.FinishedPlayers = append(r.FinishedPlayers, RaceResult{
+						PlayerID:   player.ID,
+						Name:       player.Name,
+						Model:      player.Model,
+						FinishTime: player.FinishTime,
+						MouthActionsPerMinute: (float64(player.MouthCycles*2) / player.FinishTime) * 60.0,
+					})
+				}
+			}
+		}
+
+		// Check if all players finished
 		allFinished := true
 		for _, player := range r.Players {
 			if !player.Finished {
@@ -296,14 +320,22 @@ func (r *Race) RaceLoop() {
 				break
 			}
 		}
-		if allFinished && len(r.Players) > 0 {
-			r.State = RaceStateFinished
-			r.mu.Unlock()
-			r.BroadcastResults()
+		r.mu.Unlock()
+		
+		if allFinished && r.HasPlayers() {
+			r.EndRace()
 			break
 		}
-		r.mu.Unlock()
+		
+		r.BroadcastState()
 	}
+}
+
+// HasPlayers checks if race has any players
+func (r *Race) HasPlayers() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.Players) > 0
 }
 
 // UpdateRace is deprecated - use RaceLoop instead
@@ -359,10 +391,18 @@ func (r *Race) BroadcastState() {
 	countdownStart := r.CountdownStart
 	state := r.State
 	players := make([]*RacingPlayer, 0, len(r.Players))
-	playersData := make([]RacePlayerState, 0, len(r.Players))
 	
+	// Collect players in sorted order by ID for consistency
 	for _, p := range r.Players {
 		players = append(players, p)
+	}
+	sort.Slice(players, func(i, j int) bool {
+		return players[i].ID < players[j].ID
+	})
+	
+	// Build player states in sorted order
+	playersData := make([]RacePlayerState, 0, len(players))
+	for _, p := range players {
 		playersData = append(playersData, RacePlayerState{
 			ID:       p.ID,
 			Name:     p.Name,
@@ -473,10 +513,16 @@ func (r *Race) HandleFishStateUpdate(playerID string, state FishState) {
 	
 	// Update mouth cycles from client
 	player.MouthCycles = state.MouthCycles
+	player.LastUpdate = time.Now()
 	log.Printf("Received state update for %s: cycles=%d (was %d), race state: %s", playerID, state.MouthCycles, prevCycles, r.StateString())
 
 	// Calculate progress: each cycle is 2%
 	player.Progress = float64(player.MouthCycles) * CycleProgress
+
+	// If cycles exceed target, clamp to finish
+	if player.MouthCycles >= CyclesPerRace {
+		player.Progress = 1.0
+	}
 
 	// Cap progress at 100%
 	if player.Progress > 1.0 {
@@ -510,7 +556,8 @@ func (r *Race) HandleFishStateUpdate(playerID string, state FishState) {
 		}
 
 		if allFinished {
-			r.State = RaceStateFinished
+			// Do not mutate state here; RaceLoop will finalize
+			log.Printf("All players finished! Signaling RaceLoop to finalize race %s", r.ID)
 		}
 	}
 
