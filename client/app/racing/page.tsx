@@ -27,7 +27,10 @@ export default function RacingPage() {
         setStatus("connecting");
 
         try {
-            // Create connection
+            // Connect to server FIRST (before face tracking)
+            const serverUrl = process.env.NEXT_PUBLIC_RACING_WS_URL || "ws://localhost:8080/ws/racing";
+            console.log("Connecting to racing server:", serverUrl);
+            
             const connection = new RacingConnection();
             connectionRef.current = connection;
 
@@ -52,6 +55,7 @@ export default function RacingPage() {
             };
 
             connection.onDisconnect = () => {
+                console.log("Disconnected from race");
                 setStatus("disconnected");
             };
 
@@ -60,11 +64,10 @@ export default function RacingPage() {
                 setStatus("error");
             };
 
-            // Connect to server
-            const serverUrl = process.env.NEXT_PUBLIC_RACING_WS_URL || "ws://localhost:8080/ws/racing";
+            // Connect NOW
             connection.connect(serverUrl, playerName, "fish1");
 
-            // Start face tracking
+            // Start face tracking AFTER connection (in background)
             const faceTracking = new RacingFaceTrackingInput(connection);
             faceTrackingRef.current = faceTracking;
 
@@ -78,15 +81,17 @@ export default function RacingPage() {
 
             faceTracking.onError = (error: string) => {
                 console.error("Face tracking error:", error);
-                alert(`Face tracking error: ${error}`);
             };
 
-            await faceTracking.start();
+            // Start face tracking in background (don't block)
+            faceTracking.start().catch(error => {
+                console.error("Failed to start face tracking:", error);
+            });
 
         } catch (error) {
             console.error("Error starting racing:", error);
             setStatus("error");
-            alert("Failed to start racing. Please check camera permissions.");
+            alert("Failed to start racing. Please check your connection.");
         }
     };
 

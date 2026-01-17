@@ -151,11 +151,9 @@ func (rw *RacingWorld) CreateRace() *Race {
 // JoinRace adds a player to the waiting lobby
 func (rw *RacingWorld) JoinRace(client *RacingClient, playerName, model string) *Race {
 	rw.mu.Lock()
-	defer rw.mu.Unlock()
 	
 	race := rw.WaitingLobby
 	race.mu.Lock()
-	defer race.mu.Unlock()
 	
 	// Create player
 	player := &RacingPlayer{
@@ -172,6 +170,10 @@ func (rw *RacingWorld) JoinRace(client *RacingClient, playerName, model string) 
 	race.Players[client.ID] = player
 	
 	log.Printf("Player %s joined race %s (%d/%d players)", playerName, race.ID, len(race.Players), RaceMaxPlayers)
+	
+	// Unlock before broadcasting to avoid deadlock
+	race.mu.Unlock()
+	rw.mu.Unlock()
 	
 	// Broadcast state to all players so they see the new player
 	race.BroadcastState()

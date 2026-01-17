@@ -79,13 +79,16 @@ export class RacingConnection {
         this.ws.onopen = () => {
             console.log("Racing WebSocket connected");
             // Send join message
-            this.send({ type: "join", name: playerName, model: fishModel || "fish1" });
+            const joinMsg = { type: "join", name: playerName, model: fishModel || "fish1" };
+            console.log("Sending join message:", joinMsg);
+            this.send(joinMsg);
 
             // Start sending mouth input at high frequency
             this.startInputLoop();
         };
 
         this.ws.onmessage = (event) => {
+            console.log("Racing message received:", event.data);
             const msg: RacingServerMessage = JSON.parse(event.data);
 
             switch (msg.type) {

@@ -72,12 +72,15 @@ func (c *RacingClient) ReadPump() {
 			break
 		}
 
+		log.Printf("ReadPump received message from client %s: %s", c.ID, string(message))
+
 		var msg RacingClientMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
 			log.Printf("Error unmarshaling racing message: %v", err)
 			continue
 		}
 
+		log.Printf("ReadPump parsed message type: %s", msg.Type)
 		c.HandleMessage(msg)
 	}
 }
@@ -99,8 +102,11 @@ func (c *RacingClient) WritePump() {
 				return
 			}
 
+			log.Printf("WritePump sending message to client %s: %s", c.ID, string(message))
+
 			w, err := c.Conn.NextWriter(websocket.TextMessage)
 			if err != nil {
+				log.Printf("Error getting next writer for client %s: %v", c.ID, err)
 				return
 			}
 			w.Write(message)
@@ -113,6 +119,7 @@ func (c *RacingClient) WritePump() {
 			}
 
 			if err := w.Close(); err != nil {
+				log.Printf("Error closing writer for client %s: %v", c.ID, err)
 				return
 			}
 
@@ -127,13 +134,18 @@ func (c *RacingClient) WritePump() {
 
 // HandleMessage processes incoming messages from racing clients
 func (c *RacingClient) HandleMessage(msg RacingClientMessage) {
+	log.Printf("HandleMessage called for client %s with message type: %s", c.ID, msg.Type)
+	
 	switch msg.Type {
 	case "join":
+		log.Printf("HandleMessage: Processing join case for client %s", c.ID)
 		// Join the waiting lobby
 		race := c.RacingWorld.JoinRace(c, msg.Name, msg.Model)
+		log.Printf("HandleMessage: JoinRace returned, race ID: %s", race.ID)
 		c.Race = race
 
 		// Send welcome message
+		log.Printf("HandleMessage: Creating welcome payload for client %s", c.ID)
 		welcome := RaceWelcomePayload{
 			PlayerID:  c.ID,
 			RaceID:    race.ID,
@@ -142,12 +154,13 @@ func (c *RacingClient) HandleMessage(msg RacingClientMessage) {
 			RaceState: race.StateString(),
 		}
 
+		log.Printf("HandleMessage: Sending welcome message for client %s", c.ID)
 		c.SendMessage(RacingServerMessage{
 			Type:    "welcome",
 			Payload: welcome,
 		})
 
-		log.Printf("Player %s joined racing as %s", c.ID, msg.Name)
+		log.Printf("Player %s joined racing as %s, sent welcome to race %s", c.ID, msg.Name, race.ID)
 
 	case "ready":
 		// Player clicked ready
@@ -180,8 +193,11 @@ func (c *RacingClient) SendMessage(msg RacingServerMessage) {
 		return
 	}
 
+	log.Printf("SendMessage: Queuing %s message for client %s: %s", msg.Type, c.ID, string(data))
+
 	select {
 	case c.Send <- data:
+		log.Printf("SendMessage: Successfully queued message for client %s", c.ID)
 	default:
 		log.Printf("Client %s send channel full, dropping message", c.ID)
 	}
