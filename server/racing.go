@@ -42,6 +42,7 @@ type Race struct {
 	StartTime       time.Time
 	CountdownStart  time.Time
 	FinishedPlayers []RaceResult
+	World           *RacingWorld // Reference to parent world
 	mu              sync.RWMutex
 }
 
@@ -144,6 +145,7 @@ func (rw *RacingWorld) CreateRace() *Race {
 		ID:      generateClientID(),
 		State:   RaceStateLobby,
 		Players: make(map[string]*RacingPlayer),
+		World:   rw,
 	}
 	
 	rw.Races[race.ID] = race
@@ -242,6 +244,16 @@ func (r *Race) StartRaceCountdown() {
 	r.CountdownStart = time.Now()
 	
 	log.Printf("Race %s starting countdown with %d players", r.ID, len(r.Players))
+	
+	// Create a new waiting lobby for future joiners
+	if r.World != nil {
+		go func() {
+			r.World.mu.Lock()
+			r.World.WaitingLobby = r.World.CreateRace()
+			log.Printf("Created new waiting lobby: %s (old race %s starting countdown)", r.World.WaitingLobby.ID, r.ID)
+			r.World.mu.Unlock()
+		}()
+	}
 	
 	// Broadcast countdown state to all players
 	r.BroadcastState()
@@ -502,6 +514,12 @@ func (r *Race) HandleFishStateUpdate(playerID string, state FishState) {
 	defer r.mu.Unlock()
 	log.Printf("HandleFishStateUpdate: acquired lock")
 
+	// Ignore updates on finished races
+	if r.State == RaceStateFinished {
+		log.Printf("Ignoring state update for player %s - race %s is finished", playerID, r.ID)
+		return
+	}
+
 	player, ok := r.Players[playerID]
 	if !ok {
 		log.Printf("Player %s not found in race %s", playerID, r.ID)
@@ -568,12 +586,21 @@ func (r *Race) DisconnectPlayer(playerID string) {
 	defer r.mu.Unlock()
 	
 	if player, exists := r.Players[playerID]; exists {
-		log.Printf("Player %s disconnected from race %s", player.Name, r.ID)
+		log.Printf("Player %s disconnected from race %s (state: %s)", player.Name, r.ID, r.StateString())
 		delete(r.Players, playerID)
 		
-		// If race is in lobby/countdown and no players left, we could clean up
-		if len(r.Players) == 0 && r.State != RaceStateRacing {
-			log.Printf("Race %s has no players in lobby, will be cleaned up", r.ID)
+		// Clean up finished or empty races
+		if len(r.Players) == 0 {
+			if r.State == RaceStateFinished {
+				log.Printf("Race %s finished and empty - cleaning up", r.ID)
+				if r.World != nil {
+					r.World.mu.Lock()
+					delete(r.World.Races, r.ID)
+					r.World.mu.Unlock()
+				}
+			} else if r.State == RaceStateLobby || r.State == RaceStateCountdown {
+				log.Printf("Race %s empty in %s state - will clean up", r.ID, r.StateString())
+			}
 		}
 	}
 }
