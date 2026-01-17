@@ -339,25 +339,22 @@ export class GameConnection {
         const hasKilledBy = (flags & 2) !== 0;
         const hasRespawnIn = (flags & 4) !== 0;
         
-        // ID
-        const { str: id, newOffset: idOffset } = this.readString(view, offset);
-        offset = idOffset;
+        // No ID/Name/Model - client already knows own info
+        // Use cached or empty defaults (will be set by welcome message)
+        const id = this.clientId || '';
+        const name = '';
+        const model = '';
         
-        // Name
-        const { str: name, newOffset: nameOffset } = this.readString(view, offset);
-        offset = nameOffset;
-        
-        // Model
-        const { str: model, newOffset: modelOffset } = this.readString(view, offset);
-        offset = modelOffset;
-        
-        // Position, velocity, rotation, size
-        const x = view.getFloat32(offset); offset += 4;
-        const y = view.getFloat32(offset); offset += 4;
-        const velX = view.getFloat32(offset); offset += 4;
-        const velY = view.getFloat32(offset); offset += 4;
-        const rotation = view.getFloat32(offset); offset += 4;
-        const size = view.getFloat32(offset); offset += 4;
+        // Position (int16 quantized * 0.1)
+        const x = view.getInt16(offset) / 10; offset += 2;
+        const y = view.getInt16(offset) / 10; offset += 2;
+        // Velocity (int8)
+        const velX = view.getInt8(offset++);
+        const velY = view.getInt8(offset++);
+        // Rotation (int16 / 1000)
+        const rotation = view.getInt16(offset) / 1000; offset += 2;
+        // Size (byte)
+        const size = view.getUint8(offset++);
         
         // Score and seq
         const score = view.getUint32(offset); offset += 4;
@@ -388,13 +385,13 @@ export class GameConnection {
         const { str: id, newOffset: idOffset } = this.readString(view, offset);
         offset = idOffset;
         
-        // Position data only - name/model from cache
-        const x = view.getFloat32(offset); offset += 4;
-        const y = view.getFloat32(offset); offset += 4;
-        const velX = view.getFloat32(offset); offset += 4;
-        const velY = view.getFloat32(offset); offset += 4;
-        const rotation = view.getFloat32(offset); offset += 4;
-        const size = view.getFloat32(offset); offset += 4;
+        // Quantized position data
+        const x = view.getInt16(offset) / 10; offset += 2;
+        const y = view.getInt16(offset) / 10; offset += 2;
+        const velX = view.getInt8(offset++);
+        const velY = view.getInt8(offset++);
+        const rotation = view.getInt16(offset) / 1000; offset += 2;
+        const size = view.getUint8(offset++);
         
         // Get cached name/model
         const cachedInfo = this.playerInfoCache.get(id);
