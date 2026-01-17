@@ -75,7 +75,7 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
         const lastKillTimeRef = useRef<number>(0);
         const lastDeathTimeRef = useRef<number>(0);
 
-        // Create offscreen canvas with gradient background (much faster than image)
+        // Create offscreen canvas with background image
         useEffect(() => {
             // Create offscreen canvas for background
             const offscreenCanvas = document.createElement('canvas');
@@ -84,21 +84,20 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
             const offscreenCtx = offscreenCanvas.getContext('2d');
 
             if (offscreenCtx) {
-                // Draw ocean gradient background (top to bottom)
-                const gradient = offscreenCtx.createLinearGradient(0, 0, 0, worldHeight);
-                gradient.addColorStop(0, '#0a2463');    // Deep blue top
-                gradient.addColorStop(0.5, '#1e3a5f');  // Mid blue
-                gradient.addColorStop(1, '#0c2340');    // Dark blue bottom
-                offscreenCtx.fillStyle = gradient;
-                offscreenCtx.fillRect(0, 0, worldWidth, worldHeight);
+                // Load and draw background image
+                const img = new Image();
+                img.onload = () => {
+                    offscreenCtx.drawImage(img, 0, 0, worldWidth, worldHeight);
 
-                // Draw world border on offscreen canvas
-                offscreenCtx.strokeStyle = '#ff6b6b';
-                offscreenCtx.lineWidth = 20;
-                offscreenCtx.strokeRect(0, 0, worldWidth, worldHeight);
+                    // Draw world border on offscreen canvas
+                    offscreenCtx.strokeStyle = '#ff6b6b';
+                    offscreenCtx.lineWidth = 20;
+                    offscreenCtx.strokeRect(0, 0, worldWidth, worldHeight);
 
-                offscreenCanvasRef.current = offscreenCanvas;
-                offscreenCtxRef.current = offscreenCtx;
+                    offscreenCanvasRef.current = offscreenCanvas;
+                    offscreenCtxRef.current = offscreenCtx;
+                };
+                img.src = '/background.jpg';
             }
         }, [worldWidth, worldHeight]);
 
