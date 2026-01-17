@@ -13,7 +13,8 @@ func main() {
 	world.Start()
 
 	// Setup HTTP routes
-	http.HandleFunc("/ws", HandleWebSocket(world))
+	http.HandleFunc("/ws", HandleWebSocket(world))        // Primary: position updates
+	http.HandleFunc("/ws/meta", HandleMetaWebSocket(world)) // Secondary: metadata
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Fishy Business Server Running"))
 	})
@@ -21,7 +22,9 @@ func main() {
 	// Start the server
 	port := ":8080"
 	log.Printf("Starting server on %s", port)
-	log.Printf("WebSocket endpoint: ws://localhost%s/ws", port)
+	log.Printf("WebSocket endpoints:")
+	log.Printf("  - Primary:  ws://localhost%s/ws", port)
+	log.Printf("  - Metadata: ws://localhost%s/ws/meta", port)
 
 	if err := http.ListenAndServe(port, nil); err != nil {
 		log.Fatal("Server error:", err)

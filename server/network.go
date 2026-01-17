@@ -22,8 +22,10 @@ var upgrader = websocket.Upgrader{
 // Client represents a connected WebSocket client
 type Client struct {
 	ID          string
-	Conn        *websocket.Conn
+	Conn        *websocket.Conn // Primary: high-freq position updates
+	MetaConn    *websocket.Conn // Secondary: low-freq metadata
 	Send        chan []byte
+	MetaSend    chan []byte
 	World       *World
 	Player      *Player
 	SeenPlayers map[string]bool // Track which players this client has seen
@@ -36,6 +38,7 @@ func NewClient(id string, conn *websocket.Conn, world *World) *Client {
 		ID:          id,
 		Conn:        conn,
 		Send:        make(chan []byte, WriteChannelSize),
+		MetaSend:    make(chan []byte, WriteChannelSize),
 		World:       world,
 		SeenPlayers: make(map[string]bool),
 	}
@@ -118,6 +121,46 @@ func (c *Client) WritePump() {
 	}
 }
 
+// MetaWritePump sends metadata messages on the secondary WebSocket
+func (c *Client) MetaWritePump() {
+	defer func() {
+		if c.MetaConn != nil {
+			c.MetaConn.Close()
+		}
+	}()
+
+	for {
+		select {
+		case message, ok := <-c.MetaSend:
+			if c.MetaConn == nil {
+				return
+			}
+			c.MetaConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if !ok {
+				c.MetaConn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+
+			// Batch metadata messages
+			batched := message
+			batchLoop:
+			for i := 0; i < 5; i++ { // Smaller batch for metadata
+				select {
+				case nextMsg := <-c.MetaSend:
+					batched = append(batched, nextMsg...)
+				default:
+					break batchLoop
+				}
+			}
+
+			// Send batched message
+			if err := c.MetaConn.WriteMessage(websocket.BinaryMessage, batched); err != nil {
+				return
+			}
+		}
+	}
+}
+
 // HandleMessage processes incoming client messages
 func (c *Client) HandleMessage(msg ClientMessage) {
 	switch msg.Type {
@@ -193,7 +236,7 @@ func (c *Client) HandleInput(msg ClientMessage) {
 	}
 }
 
-// SendMessage sends a message to the client
+// SendMessage sends a message to the client (routes to appropriate socket)
 func (c *Client) SendMessage(msg ServerMessage) {
 	// Try binary encoding first
 	data, err := EncodeBinaryMessage(msg)
@@ -202,27 +245,35 @@ func (c *Client) SendMessage(msg ServerMessage) {
 		return
 	}
 	
-	// If binary encoding succeeded, send as binary
-	if data != nil {
-		select {
-		case c.Send <- data:
-		default:
-			// Channel full, client too slow
-			log.Printf("Client %s send channel full, closing connection", c.ID)
-			c.World.Disconnect(c)
+	if data == nil {
+		// Fallback to JSON for unsupported message types
+		jsonData, err := json.Marshal(msg)
+		if err != nil {
+			log.Printf("Error marshaling message: %v", err)
+			return
 		}
-		return
+		data = jsonData
 	}
 	
-	// Fallback to JSON for unsupported message types
-	jsonData, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("Error marshaling message: %v", err)
-		return
+	// Route to appropriate socket
+	var targetChan chan []byte
+	switch msg.Type {
+	case "state":
+		// High-frequency position updates -> primary socket
+		targetChan = c.Send
+	case "leaderboard", "playerInfo", "welcome":
+		// Low-frequency metadata -> secondary socket (if available)
+		if c.MetaConn != nil {
+			targetChan = c.MetaSend
+		} else {
+			targetChan = c.Send // Fallback to primary
+		}
+	default:
+		targetChan = c.Send
 	}
 
 	select {
-	case c.Send <- jsonData:
+	case targetChan <- data:
 	default:
 		// Channel full, client too slow
 		log.Printf("Client %s send channel full, closing connection", c.ID)
@@ -230,7 +281,7 @@ func (c *Client) SendMessage(msg ServerMessage) {
 	}
 }
 
-// HandleWebSocket upgrades HTTP connection to WebSocket
+// HandleWebSocket upgrades HTTP connection to WebSocket (primary socket)
 func HandleWebSocket(world *World) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -245,6 +296,51 @@ func HandleWebSocket(world *World) http.HandlerFunc {
 		// Start read and write pumps
 		go client.WritePump()
 		go client.ReadPump()
+	}
+}
+
+// HandleMetaWebSocket upgrades HTTP connection to metadata WebSocket (secondary socket)
+func HandleMetaWebSocket(world *World) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get client ID from query parameter
+		clientID := r.URL.Query().Get("id")
+		if clientID == "" {
+			http.Error(w, "Missing client ID", http.StatusBadRequest)
+			return
+		}
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("Meta WebSocket upgrade error: %v", err)
+			return
+		}
+
+		// Find existing client and attach metadata socket
+		world.mu.RLock()
+		var client *Client
+		for _, player := range world.Players {
+			if player.Client != nil && player.Client.ID == clientID {
+				client = player.Client
+				break
+			}
+		}
+		world.mu.RUnlock()
+
+		if client == nil {
+			log.Printf("Client %s not found for meta socket", clientID)
+			conn.Close()
+			return
+		}
+
+		// Attach metadata socket
+		client.mu.Lock()
+		client.MetaConn = conn
+		client.mu.Unlock()
+
+		log.Printf("Meta WebSocket connected for client %s", clientID)
+
+		// Start metadata write pump
+		go client.MetaWritePump()
 	}
 }
 

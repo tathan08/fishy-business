@@ -11,7 +11,9 @@ import type {
 } from "@/types/game";
 
 export class GameConnection {
-    private ws: WebSocket | null = null;
+    private ws: WebSocket | null = null; // Primary: position updates
+    private metaWs: WebSocket | null = null; // Secondary: metadata
+    private clientId: string | null = null;
     private inputSeq: number = 0;
     private inputInterval: number | null = null;
     private lastGameState: GameStatePayload | null = null;
@@ -45,18 +47,18 @@ export class GameConnection {
         this.ws.binaryType = 'arraybuffer';
 
         this.ws.onopen = () => {
-            console.log("WebSocket connected successfully");
+            console.log("Primary WebSocket connected");
             // Step 1: Send join message with fish model
             this.send({ type: "join", name: playerName, model: fishModel });
 
-            // Step 2: Start sending input at 20Hz (every 50ms)
+            // Step 2: Start sending input
             this.startInputLoop();
         };
 
         this.ws.onmessage = (event) => {
             // Handle binary messages
             if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
-                this.handleBinaryMessage(event.data);
+                this.handleBinaryMessage(event.data, 'primary');
                 return;
             }
 
@@ -65,7 +67,12 @@ export class GameConnection {
 
             switch (msg.type) {
                 case "welcome":
-                    this.onWelcome(msg.payload as WelcomePayload);
+                    const welcomeData = msg.payload as WelcomePayload;
+                    this.clientId = welcomeData.id;
+                    this.onWelcome(welcomeData);
+                    
+                    // Connect to metadata socket after getting client ID
+                    this.connectMetaSocket(serverUrl, welcomeData.id);
                     break;
 
                 case "state":
@@ -73,26 +80,50 @@ export class GameConnection {
                     break;
 
                 case "leaderboard":
-                    // Update leaderboard separately - merge with last state
-                    // This is handled by decoding logic
+                    // Handled by metadata socket now
                     break;
 
                 case "pong":
-                    // Could calculate latency here
                     break;
             }
         };
 
         this.ws.onclose = () => {
-            console.log("WebSocket closed");
+            console.log("Primary WebSocket closed");
             this.stopInputLoop();
-            this.onDisconnect();
+            this.disconnect();
         };
 
         this.ws.onerror = (err) => {
-            console.error("WebSocket error occurred:", err);
-            console.error("Error type:", err.type);
+            console.error("Primary WebSocket error:", err);
             this.onError(err);
+        };
+    }
+
+    private connectMetaSocket(primaryUrl: string, clientId: string): void {
+        // Convert primary URL to metadata URL
+        const metaUrl = primaryUrl.replace('/ws', '/ws/meta') + `?id=${clientId}`;
+        
+        console.log("Connecting to metadata socket:", metaUrl);
+        this.metaWs = new WebSocket(metaUrl);
+        this.metaWs.binaryType = 'arraybuffer';
+
+        this.metaWs.onopen = () => {
+            console.log("Metadata WebSocket connected");
+        };
+
+        this.metaWs.onmessage = (event) => {
+            if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
+                this.handleBinaryMessage(event.data, 'meta');
+            }
+        };
+
+        this.metaWs.onclose = () => {
+            console.log("Metadata WebSocket closed");
+        };
+
+        this.metaWs.onerror = (err) => {
+            console.error("Metadata WebSocket error:", err);
         };
     }
 
@@ -153,10 +184,15 @@ export class GameConnection {
             this.ws.close();
             this.ws = null;
         }
+        if (this.metaWs) {
+            this.metaWs.close();
+            this.metaWs = null;
+        }
+        this.onDisconnect();
     }
 
     // Binary protocol decoder
-    private async handleBinaryMessage(data: ArrayBuffer | Blob): Promise<void> {
+    private async handleBinaryMessage(data: ArrayBuffer | Blob, source: 'primary' | 'meta'): Promise<void> {
         let buffer: ArrayBuffer;
         
         if (data instanceof Blob) {
@@ -265,7 +301,8 @@ export class GameConnection {
             you: player,
             others,
             food,
-            leaderboard,
+            // Preserve previous leaderboard if current update has none
+            leaderboard: leaderboard.length > 0 ? leaderboard : (this.lastGameState?.leaderboard || []),
         };
         
         this.lastGameState = state;
