@@ -14,6 +14,7 @@ export class GameConnection {
     private ws: WebSocket | null = null;
     private inputSeq: number = 0;
     private inputInterval: number | null = null;
+    private lastGameState: GameStatePayload | null = null;
 
     // Current input state (updated by input handler)
     private currentInput = {
@@ -70,6 +71,11 @@ export class GameConnection {
                     this.onStateUpdate(msg.payload as GameStatePayload);
                     break;
 
+                case "leaderboard":
+                    // Update leaderboard separately - merge with last state
+                    // This is handled by decoding logic
+                    break;
+
                 case "pong":
                     // Could calculate latency here
                     break;
@@ -95,7 +101,7 @@ export class GameConnection {
     }
 
     private startInputLoop(): void {
-        // Send input 15 times per second (every 66ms)
+        // Send input 15 times per second (every 66.6ms)
         this.inputInterval = window.setInterval(() => {
             this.sendInput();
         }, 66);
@@ -170,6 +176,9 @@ export class GameConnection {
                 break;
             case 3: // Pong
                 break;
+            case 4: // Leaderboard
+                this.decodeLeaderboard(view);
+                break;
         }
     }
 
@@ -221,7 +230,7 @@ export class GameConnection {
             offset = newOffset;
         }
         
-        // Decode leaderboard
+        // Decode leaderboard (may be empty if sent separately)
         const leaderboardCount = view.getUint16(offset);
         offset += 2;
         const leaderboard: any[] = [];
@@ -231,12 +240,34 @@ export class GameConnection {
             offset = newOffset;
         }
         
-        this.onStateUpdate({
+        const state = {
             you: player,
             others,
             food,
             leaderboard,
-        });
+        };
+        
+        this.lastGameState = state;
+        this.onStateUpdate(state);
+    }
+
+    private decodeLeaderboard(view: DataView): void {
+        let offset = 1;
+        const count = view.getUint8(offset);
+        offset += 1;
+        
+        const leaderboard: any[] = [];
+        for (let i = 0; i < count; i++) {
+            const { entry, newOffset } = this.decodeLeaderboardEntry(view, offset);
+            leaderboard.push(entry);
+            offset = newOffset;
+        }
+        
+        // Merge with last game state
+        if (this.lastGameState) {
+            this.lastGameState.leaderboard = leaderboard;
+            this.onStateUpdate(this.lastGameState);
+        }
     }
 
     private decodePlayerState(view: DataView, offset: number): { player: any; newOffset: number } {

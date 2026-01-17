@@ -67,6 +67,6 @@ export interface WelcomePayload {
 }
 
 export interface ServerMessage {
-    type: "welcome" | "state" | "pong";
-    payload?: WelcomePayload | GameStatePayload;
+    type: "welcome" | "state" | "pong" | "leaderboard";
+    payload?: WelcomePayload | GameStatePayload | LeaderboardEntry[];
 }
