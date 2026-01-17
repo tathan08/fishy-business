@@ -4,6 +4,7 @@ package main
 type ClientMessage struct {
 	Type  string  `json:"type"`
 	Name  string  `json:"name,omitempty"`
+	Model string  `json:"model,omitempty"`
 	DirX  float64 `json:"dirX,omitempty"`
 	DirY  float64 `json:"dirY,omitempty"`
 	Boost bool    `json:"boost,omitempty"`
@@ -40,17 +41,19 @@ type PlayerState struct {
 	Score      int      `json:"score"`
 	Alive      bool     `json:"alive"`
 	Seq        uint32   `json:"seq"`
+	Model      string   `json:"model,omitempty"`
 	KilledBy   *string  `json:"killedBy,omitempty"`
 	RespawnIn  *float64 `json:"respawnIn,omitempty"`
 }
 
 // OtherPlayerState represents another player's state
 type OtherPlayerState struct {
-	ID   string  `json:"id"`
-	Name string  `json:"name"`
-	X    float64 `json:"x"`
-	Y    float64 `json:"y"`
-	Size float64 `json:"size"`
+	ID    string  `json:"id"`
+	Name  string  `json:"name"`
+	X     float64 `json:"x"`
+	Y     float64 `json:"y"`
+	Size  float64 `json:"size"`
+	Model string  `json:"model,omitempty"`
 }
 
 // FoodState represents a food item's state

@@ -9,6 +9,7 @@ import (
 type Player struct {
 	ID          string
 	Name        string
+	Model       string
 	Position    Vec2
 	Velocity    Vec2
 	Size        float64
@@ -22,10 +23,14 @@ type Player struct {
 }
 
 // NewPlayer creates a new player at a random position
-func NewPlayer(id, name string, client *Client) *Player {
+func NewPlayer(id, name, model string, client *Client) *Player {
+	if model == "" {
+		model = "swordfish" // Default model
+	}
 	return &Player{
 		ID:       id,
 		Name:     name,
+		Model:    model,
 		Position: Vec2{X: RandomFloat(100, WorldWidth-100), Y: RandomFloat(100, WorldHeight-100)},
 		Velocity: Vec2{X: 0, Y: 0},
 		Size:     InitialPlayerSize,
