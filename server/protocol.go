@@ -38,6 +38,8 @@ type PlayerState struct {
 	Name       string   `json:"name"`
 	X          float64  `json:"x"`
 	Y          float64  `json:"y"`
+	VelX       float64  `json:"velX"`
+	VelY       float64  `json:"velY"`
 	Size       float64  `json:"size"`
 	Score      int      `json:"score"`
 	Alive      bool     `json:"alive"`
@@ -53,6 +55,8 @@ type OtherPlayerState struct {
 	Name  string  `json:"name"`
 	X     float64 `json:"x"`
 	Y     float64 `json:"y"`
+	VelX  float64 `json:"velX"`
+	VelY  float64 `json:"velY"`
 	Size  float64 `json:"size"`
 	Model string  `json:"model,omitempty"`
 }

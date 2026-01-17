@@ -42,10 +42,23 @@ export function drawFish(
     const model = (fish.model || 'swordfish') as FishModel;
     const size = fish.size;
     
+    // Calculate rotation angle from velocity
+    let angle = 0;
+    if (fish.velX !== undefined && fish.velY !== undefined) {
+        const speed = Math.sqrt(fish.velX * fish.velX + fish.velY * fish.velY);
+        if (speed > 0.1) { // Only rotate if moving
+            angle = Math.atan2(fish.velY, fish.velX);
+        }
+    }
+    
     // Try to load/get the image
     const img = loadFishImage(model);
     
     ctx.save();
+    
+    // Translate to fish position and rotate
+    ctx.translate(fish.x, fish.y);
+    ctx.rotate(angle);
 
     // Draw the fish image or fallback to shape
     if (img && img.complete && img.naturalHeight !== 0) {
@@ -63,25 +76,25 @@ export function drawFish(
         
         ctx.drawImage(
             img,
-            fish.x - imgSize / 2,
-            fish.y - imgSize / 2,
+            -imgSize / 2,
+            -imgSize / 2,
             imgSize,
             imgSize
         );
     } else {
         // Fallback to drawn shapes
-        drawFishShape(ctx, fish, isPlayer, model);
+        drawFishShape(ctx, size, isPlayer, model);
     }
 
     ctx.restore();
 
-    // Draw username above fish
+    // Draw username above fish (not rotated)
     ctx.fillStyle = isPlayer ? '#fbbf24' : '#ffffff';
     ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(fish.name || 'Unknown', fish.x, fish.y - size - 10);
 
-    // Draw size indicator
+    // Draw size indicator (not rotated)
     ctx.font = '12px Arial';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.fillText(size.toFixed(0), fish.x, fish.y + 4);
@@ -89,32 +102,31 @@ export function drawFish(
 
 function drawFishShape(
     ctx: CanvasRenderingContext2D,
-    fish: PlayerState,
+    size: number,
     isPlayer: boolean,
     model: FishModel
 ) {
-    const size = fish.size;
     const baseColor = isPlayer ? '#fbbf24' : '#60a5fa';
 
-    // Simple fish shape as fallback
+    // Simple fish shape as fallback (drawn at origin, will be rotated by parent)
     ctx.fillStyle = baseColor;
     ctx.beginPath();
     
     // Basic fish body
-    ctx.ellipse(fish.x, fish.y, size * 1.2, size * 0.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, size * 1.2, size * 0.8, 0, 0, Math.PI * 2);
     ctx.fill();
     
     // Tail
     ctx.beginPath();
-    ctx.moveTo(fish.x - size * 1.2, fish.y);
-    ctx.lineTo(fish.x - size * 1.8, fish.y - size * 0.6);
-    ctx.lineTo(fish.x - size * 1.8, fish.y + size * 0.6);
+    ctx.moveTo(-size * 1.2, 0);
+    ctx.lineTo(-size * 1.8, -size * 0.6);
+    ctx.lineTo(-size * 1.8, size * 0.6);
     ctx.closePath();
     ctx.fill();
     
     // Eye
     ctx.fillStyle = '#000000';
     ctx.beginPath();
-    ctx.arc(fish.x + size * 0.5, fish.y - size * 0.2, 3, 0, Math.PI * 2);
+    ctx.arc(size * 0.5, -size * 0.2, 3, 0, Math.PI * 2);
     ctx.fill();
 }
