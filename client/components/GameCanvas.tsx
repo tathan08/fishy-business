@@ -89,8 +89,8 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                 const now = Date.now();
                 const timeSinceUpdate = (now - lastUpdateTimeRef.current) / 1000;
                 
-                // Cap interpolation to expected update interval (50ms for 20Hz)
-                const maxInterpolationTime = 0.05; // 50ms
+                // Cap interpolation to expected update interval (67ms for 15Hz)
+                const maxInterpolationTime = 0.067; // 67ms
                 const cappedTime = Math.min(timeSinceUpdate, maxInterpolationTime);
 
                 const interpolatePlayer = (current: any) => {

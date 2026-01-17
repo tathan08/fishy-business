@@ -6,8 +6,8 @@ const (
 	WorldHeight = 4000.0
 
 	// Game loop configuration
-	TickRate      = 60              // Game updates per second
-	BroadcastRate = 20              // State broadcasts per second
+	TickRate      = 30              // Game updates per second
+	BroadcastRate = 15              // State broadcasts per second
 	TickInterval  = 1000 / TickRate // milliseconds
 
 	// Player configuration
