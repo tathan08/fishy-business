@@ -475,8 +475,7 @@ export class GameConnection {
     private readString(view: DataView, offset: number): { str: string; newOffset: number } {
         // Check if we have enough bytes to read the length
         if (offset + 2 > view.byteLength) {
-            console.error('readString: Not enough bytes for length at offset', offset, 'view length:', view.byteLength);
-            return { str: '', newOffset: offset };
+            throw new Error(`readString: Not enough bytes for length at offset ${offset}, view length: ${view.byteLength}`);
         }
         
         const length = view.getUint16(offset);
@@ -484,14 +483,12 @@ export class GameConnection {
         
         // Validate string length
         if (length > 10000) { // Reasonable max string length
-            console.error('readString: Invalid string length', length, 'at offset', offset - 2);
-            return { str: '', newOffset: offset };
+            throw new Error(`readString: Invalid string length ${length} at offset ${offset - 2}`);
         }
         
         // Check if we have enough bytes for the string content
         if (offset + length > view.byteLength) {
-            console.error('readString: Not enough bytes for string content. Need', length, 'bytes at offset', offset, 'view length:', view.byteLength);
-            return { str: '', newOffset: offset };
+            throw new Error(`readString: Not enough bytes for string content. Need ${length} bytes at offset ${offset}, view length: ${view.byteLength}`);
         }
         
         const bytes = new Uint8Array(view.buffer, view.byteOffset + offset, length);
