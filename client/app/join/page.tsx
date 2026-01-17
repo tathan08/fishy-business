@@ -67,7 +67,7 @@ export default function JoinPage() {
                                 `}
                             >
                                 {!imageErrors[fish.id] ? (
-                                    <div className="relative w-48 h-48 mb-2">
+                                    <div className="relative w-16 h-16 mb-2">
                                         <Image
                                             src={`/fish-models/${fish.id}.png`}
                                             alt={fish.name}

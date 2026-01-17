@@ -102,9 +102,6 @@ export function drawFish(
     // Try to load/get the image
     const img = loadFishImage(model);
 
-    const VISUAL_SCALE = 3; // Scale fish visuals by 3x
-    const visualSize = size * VISUAL_SCALE;
-
     ctx.save();
 
     // Translate to fish position and rotate
@@ -114,7 +111,7 @@ export function drawFish(
     // Draw the fish image or fallback to shape
     if (img && img.complete && img.naturalHeight !== 0) {
         // Draw the image
-        const imgSize = size * 2.5 * VISUAL_SCALE; // 3x larger
+        const imgSize = size * 2.5; // Make image slightly larger than circle would be
 
         // Apply transparency for player vs others
         if (isPlayer) {
@@ -133,7 +130,7 @@ export function drawFish(
         );
     } else {
         // Fallback to drawn shapes
-        drawFishShape(ctx, visualSize, isPlayer, model);
+        drawFishShape(ctx, size, isPlayer, model);
     }
 
     // Draw debug hitboxes
@@ -145,7 +142,7 @@ export function drawFish(
     ctx.fillStyle = isPlayer ? '#fbbf24' : '#ffffff';
     ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(fish.name || 'Unknown', fish.x, fish.y - visualSize - 10);
+    ctx.fillText(fish.name || 'Unknown', fish.x, fish.y - size - 10);
 
     // Draw size indicator (not rotated)
     ctx.font = '12px Arial';
