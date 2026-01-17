@@ -118,7 +118,7 @@ func (w *World) UpdatePhysics(dt float64) {
 
 		// Apply velocity based on current input state (persists between input updates)
 		targetVelocity := player.InputDirection.Mul(PlayerSpeed)
-		if player.InputBoost && player.Size > MinPlayerSize {
+		if player.InputBoost {
 			targetVelocity = targetVelocity.Mul(BoostMultiplier)
 		}
 		
