@@ -164,43 +164,60 @@ export class GameConnection {
             buffer = data;
         }
 
-        const view = new DataView(buffer);
-        const msgType = view.getUint8(0);
-
-        switch (msgType) {
-            case 1: // Welcome
-                this.decodeWelcome(view);
-                break;
-            case 2: // State
-                this.decodeGameState(view);
-                break;
-            case 3: // Pong
-                break;
-            case 4: // Leaderboard
-                this.decodeLeaderboard(view);
-                break;
+        // Handle batched messages (multiple messages concatenated)
+        let offset = 0;
+        const totalLength = buffer.byteLength;
+        
+        while (offset < totalLength) {
+            const view = new DataView(buffer, offset);
+            const msgType = view.getUint8(0);
+            
+            let messageLength = 0;
+            
+            switch (msgType) {
+                case 1: // Welcome
+                    messageLength = this.decodeWelcome(view);
+                    break;
+                case 2: // State
+                    messageLength = this.decodeGameState(view);
+                    break;
+                case 3: // Pong
+                    messageLength = 1;
+                    break;
+                case 4: // Leaderboard
+                    messageLength = this.decodeLeaderboard(view);
+                    break;
+                default:
+                    console.warn('Unknown message type:', msgType);
+                    return; // Can't continue if we don't know the length
+            }
+            
+            offset += messageLength;
         }
     }
 
-    private decodeWelcome(view: DataView): void {
+    private decodeWelcome(view: DataView): number {
         let offset = 1;
         
         // ID string
         const idLen = view.getUint16(offset);
         offset += 2;
-        const id = new TextDecoder().decode(new Uint8Array(view.buffer, offset, idLen));
+        const id = new TextDecoder().decode(new Uint8Array(view.buffer, view.byteOffset + offset, idLen));
         offset += idLen;
         
         // World dimensions
         const worldWidth = view.getFloat64(offset);
         offset += 8;
         const worldHeight = view.getFloat64(offset);
+        offset += 8;
         
         this.onWelcome({
             id,
             worldWidth,
             worldHeight,
         });
+        
+        return offset; // Return total bytes consumed
     }
 
     private decodeGameState(view: DataView): void {
@@ -249,6 +266,8 @@ export class GameConnection {
         
         this.lastGameState = state;
         this.onStateUpdate(state);
+        
+        return offset; // Return total bytes consumed
     }
 
     private decodeLeaderboard(view: DataView): void {
@@ -268,6 +287,8 @@ export class GameConnection {
             this.lastGameState.leaderboard = leaderboard;
             this.onStateUpdate(this.lastGameState);
         }
+        
+        return offset; // Return total bytes consumed
     }
 
     private decodePlayerState(view: DataView, offset: number): { player: any; newOffset: number } {
@@ -372,7 +393,7 @@ export class GameConnection {
     private readString(view: DataView, offset: number): { str: string; newOffset: number } {
         const length = view.getUint16(offset);
         offset += 2;
-        const bytes = new Uint8Array(view.buffer, offset, length);
+        const bytes = new Uint8Array(view.buffer, view.byteOffset + offset, length);
         const str = new TextDecoder().decode(bytes);
         return { str, newOffset: offset + length };
     }

@@ -87,8 +87,22 @@ func (c *Client) WritePump() {
 				return
 			}
 
-			// Send as binary message
-			if err := c.Conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
+			// Batch multiple messages together (like slither.io)
+			batched := message
+			
+			// Drain additional queued messages and append them
+			batchLoop:
+			for i := 0; i < 10; i++ { // Max 10 messages per batch
+				select {
+				case nextMsg := <-c.Send:
+					batched = append(batched, nextMsg...)
+				default:
+					break batchLoop
+				}
+			}
+
+			// Send batched binary message
+			if err := c.Conn.WriteMessage(websocket.BinaryMessage, batched); err != nil {
 				return
 			}
 
