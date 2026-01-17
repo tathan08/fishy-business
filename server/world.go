@@ -52,17 +52,17 @@ func (w *World) GameLoop() {
 
 // BroadcastLoop sends state updates to clients at 15Hz
 func (w *World) BroadcastLoop() {
-	ticker := time.NewTicker(time.Second / BroadcastRate)
+	stateTicker := time.NewTicker(time.Second / BroadcastRate)
 	leaderboardTicker := time.NewTicker(time.Second) // Leaderboard at 1Hz
-	defer ticker.Stop()
+	defer stateTicker.Stop()
 	defer leaderboardTicker.Stop()
 
 	for {
 		select {
-		case <-ticker.C:
-			w.Broadcast(false) // Don't include leaderboard
+		case <-stateTicker.C:
+			w.BroadcastState() // Send state without leaderboard
 		case <-leaderboardTicker.C:
-			w.Broadcast(true) // Include leaderboard
+			w.BroadcastLeaderboard() // Send leaderboard separately
 		}
 	}
 }
