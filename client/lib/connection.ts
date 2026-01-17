@@ -28,10 +28,11 @@ export class GameConnection {
     onError: (error: Event) => void = () => { };
 
     connect(serverUrl: string, playerName: string): void {
+        console.log("Attempting to connect to:", serverUrl);
         this.ws = new WebSocket(serverUrl);
 
         this.ws.onopen = () => {
-            console.log("WebSocket connected");
+            console.log("WebSocket connected successfully");
             // Step 1: Send join message
             this.send({ type: "join", name: playerName });
 
@@ -64,7 +65,8 @@ export class GameConnection {
         };
 
         this.ws.onerror = (err) => {
-            console.error("WebSocket error:", err);
+            console.error("WebSocket error occurred:", err);
+            console.error("Error type:", err.type);
             this.onError(err);
         };
     }
