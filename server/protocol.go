@@ -40,6 +40,7 @@ type PlayerState struct {
 	Y          float64  `json:"y"`
 	VelX       float64  `json:"velX"`
 	VelY       float64  `json:"velY"`
+	Rotation   float64  `json:"rotation"`
 	Size       float64  `json:"size"`
 	Score      int      `json:"score"`
 	Alive      bool     `json:"alive"`
@@ -51,14 +52,15 @@ type PlayerState struct {
 
 // OtherPlayerState represents another player's state
 type OtherPlayerState struct {
-	ID    string  `json:"id"`
-	Name  string  `json:"name"`
-	X     float64 `json:"x"`
-	Y     float64 `json:"y"`
-	VelX  float64 `json:"velX"`
-	VelY  float64 `json:"velY"`
-	Size  float64 `json:"size"`
-	Model string  `json:"model,omitempty"`
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	X        float64 `json:"x"`
+	Y        float64 `json:"y"`
+	VelX     float64 `json:"velX"`
+	VelY     float64 `json:"velY"`
+	Rotation float64 `json:"rotation"`
+	Size     float64 `json:"size"`
+	Model    string  `json:"model,omitempty"`
 }
 
 // FoodState represents a food item's state

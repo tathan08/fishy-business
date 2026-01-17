@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"math"
 	"sort"
 	"sync"
 	"time"
@@ -118,6 +119,11 @@ func (w *World) UpdatePhysics(dt float64) {
 		// Update position
 		player.Position = player.Position.Add(player.Velocity.Mul(dt))
 
+		// Update rotation based on velocity
+		if player.Velocity.Length() > 0.1 {
+			player.Rotation = math.Atan2(player.Velocity.Y, player.Velocity.X)
+		}
+
 		// Clamp to world bounds (hard border)
 		if player.Position.X < 0 {
 			player.Position.X = 0
@@ -164,10 +170,13 @@ func (w *World) RebuildQuadtree() {
 
 // DetectCollisions checks for collisions between entities
 func (w *World) DetectCollisions() {
+	// First pass: Check for eating (mouth vs body/food)
 	for _, player := range w.Players {
 		if !player.Alive {
 			continue
 		}
+
+		playerMouth := player.GetMouthHitbox()
 
 		// Query nearby entities
 		nearby := w.Quadtree.QueryCircle(player.Position, ViewDistance, nil)
@@ -180,21 +189,52 @@ func (w *World) DetectCollisions() {
 					continue
 				}
 
-				// Check if players collide
-				if CirclesOverlap(player.Position, player.Size, e.Position, e.Size) {
+				// Check if player's mouth can eat the other player's body
+				otherBody := e.GetBodyHitbox()
+				if CircleOrientedRectCollision(playerMouth, otherBody) {
 					// Bigger fish eats smaller fish
 					if player.Size >= e.Size*SizeMultiplier {
 						w.EatPlayer(player, e.Player)
-					} else if e.Size >= player.Size*SizeMultiplier {
-						w.EatPlayer(e.Player, player)
 					}
 				}
 
 			case *FoodEntity:
-				// Check if player eats food
-				if CirclesOverlap(player.Position, player.Size, e.Position, e.Size) {
+				// Check if player's mouth eats food (food is circular)
+				foodCircle := Circle{
+					Center: e.Position,
+					Radius: e.Size,
+				}
+				if CircleCircleCollision(playerMouth, foodCircle) {
 					w.EatFood(player, e.Food)
 				}
+			}
+		}
+	}
+
+	// Second pass: Check for body-to-body bouncing
+	players := make([]*Player, 0, len(w.Players))
+	for _, p := range w.Players {
+		if p.Alive {
+			players = append(players, p)
+		}
+	}
+
+	for i := 0; i < len(players); i++ {
+		for j := i + 1; j < len(players); j++ {
+			p1 := players[i]
+			p2 := players[j]
+
+			// Check if bodies collide
+			body1 := p1.GetBodyHitbox()
+			body2 := p2.GetBodyHitbox()
+
+			collides, separation := OrientedRectCollision(body1, body2)
+			if collides {
+				// Apply bounce force
+				// Push both players apart
+				force := BounceStrength
+				p1.Velocity = p1.Velocity.Add(separation.Mul(-force * 0.016)) // dt approximation
+				p2.Velocity = p2.Velocity.Add(separation.Mul(force * 0.016))
 			}
 		}
 	}
@@ -296,17 +336,18 @@ func (w *World) Broadcast() {
 func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEntry) GameStatePayload {
 	// Player's own state
 	you := PlayerState{
-		ID:    player.ID,
-		Name:  player.Name,
-		X:     player.Position.X,
-		Y:     player.Position.Y,
-		VelX:  player.Velocity.X,
-		VelY:  player.Velocity.Y,
-		Size:  player.Size,
-		Score: player.Score,
-		Alive: player.Alive,
-		Seq:   player.LastSeq,
-		Model: player.Model,
+		ID:       player.ID,
+		Name:     player.Name,
+		X:        player.Position.X,
+		Y:        player.Position.Y,
+		VelX:     player.Velocity.X,
+		VelY:     player.Velocity.Y,
+		Rotation: player.Rotation,
+		Size:     player.Size,
+		Score:    player.Score,
+		Alive:    player.Alive,
+		Seq:      player.LastSeq,
+		Model:    player.Model,
 	}
 
 	if !player.Alive {
@@ -324,14 +365,15 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 		distance := Distance(player.Position, other.Position)
 		if distance <= ViewDistance {
 			others = append(others, OtherPlayerState{
-				ID:    other.ID,
-				Name:  other.Name,
-				X:     other.Position.X,
-				Y:     other.Position.Y,
-				VelX:  other.Velocity.X,
-				VelY:  other.Velocity.Y,
-				Size:  other.Size,
-				Model: other.Model,
+				ID:       other.ID,
+				Name:     other.Name,
+				X:        other.Position.X,
+				Y:        other.Position.Y,
+				VelX:     other.Velocity.X,
+				VelY:     other.Velocity.Y,
+				Rotation: other.Rotation,
+				Size:     other.Size,
+				Model:    other.Model,
 			})
 		}
 	}

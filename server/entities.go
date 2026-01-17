@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"sync"
 	"time"
 )
@@ -13,6 +14,7 @@ type Player struct {
 	Position    Vec2
 	Velocity    Vec2
 	Size        float64
+	Rotation    float64 // Angle in radians
 	Score       int
 	Alive       bool
 	RespawnTime float64
@@ -55,9 +57,54 @@ func (p *Player) Respawn() {
 	p.Position = Vec2{X: RandomFloat(100, WorldWidth-100), Y: RandomFloat(100, WorldHeight-100)}
 	p.Velocity = Vec2{X: 0, Y: 0}
 	p.Size = InitialPlayerSize
+	p.Rotation = 0
 	p.Alive = true
 	p.RespawnTime = 0
 	p.KilledBy = ""
+}
+
+// GetHitboxConfig returns the hitbox configuration for this player's model
+func (p *Player) GetHitboxConfig() HitboxConfig {
+	if config, ok := FishHitboxConfigs[p.Model]; ok {
+		return config
+	}
+	return DefaultHitboxConfig
+}
+
+// GetMouthHitbox returns the circular mouth hitbox for eating
+func (p *Player) GetMouthHitbox() Circle {
+	config := p.GetHitboxConfig()
+	
+	// Cap the size at MaxPlayerSize for hitbox calculation
+	cappedSize := Min(p.Size, MaxPlayerSize)
+	
+	// Mouth radius is a fraction of the capped size
+	mouthRadius := cappedSize * config.MouthSizeRatio
+	
+	// Mouth position is offset in front of the fish
+	offsetDistance := cappedSize * config.MouthOffsetRatio
+	mouthX := p.Position.X + math.Cos(p.Rotation)*offsetDistance
+	mouthY := p.Position.Y + math.Sin(p.Rotation)*offsetDistance
+	
+	return Circle{
+		Center: Vec2{X: mouthX, Y: mouthY},
+		Radius: mouthRadius,
+	}
+}
+
+// GetBodyHitbox returns the rectangular body hitbox for bouncing
+func (p *Player) GetBodyHitbox() OrientedRect {
+	config := p.GetHitboxConfig()
+	
+	// Cap the size at MaxPlayerSize for hitbox calculation
+	cappedSize := Min(p.Size, MaxPlayerSize)
+	
+	return OrientedRect{
+		Center:   p.Position,
+		Width:    cappedSize * config.BodyWidthRatio,
+		Height:   cappedSize * config.BodyHeightRatio,
+		Rotation: p.Rotation,
+	}
 }
 
 // Food represents a food item in the game
