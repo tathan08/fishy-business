@@ -7,10 +7,10 @@ const imageLoadAttempts: Record<string, boolean> = {};
 // Hitbox configurations matching server (for debugging visualization)
 const HITBOX_CONFIGS = {
     swordfish: {
-        bodyWidthRatio: 2.0,
-        bodyHeightRatio: 0.8,
+        bodyWidthRatio: 1.3,
+        bodyHeightRatio: 0.6,
         mouthSizeRatio: 0.25,
-        mouthOffsetRatio: 1.0,
+        mouthOffsetRatio: 0.6,
     },
     blobfish: {
         bodyWidthRatio: 1.3,

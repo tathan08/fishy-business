@@ -52,34 +52,34 @@ type HitboxConfig struct {
 // FishHitboxConfigs maps fish models to their hitbox configurations
 var FishHitboxConfigs = map[string]HitboxConfig{
 	"swordfish": {
-		BodyWidthRatio:   3.5,  // Very elongated with long sword
-		BodyHeightRatio:  0.8,  // Sleek and thin
+		BodyWidthRatio:   1.3,  // Balanced
+		BodyHeightRatio:  0.6,  // Sleek and thin
 		MouthSizeRatio:   0.25, // Smaller pointed mouth
-		MouthOffsetRatio: 1.0,  // Same as shark
+		MouthOffsetRatio: 0.6,  // Forward positioned
 	},
 	"blobfish": {
-		BodyWidthRatio:   2.2,  // Wide and blobby
+		BodyWidthRatio:   1.3,  // Compact and blobby
 		BodyHeightRatio:  1.3,  // Taller but flattened
 		MouthSizeRatio:   0.35, // Large droopy mouth
-		MouthOffsetRatio: 1.0,  // Mouth at front but not far
+		MouthOffsetRatio: 0.6,  // Close to center
 	},
 	"pufferfish": {
 		BodyWidthRatio:   1.2, // Nearly circular when puffed
 		BodyHeightRatio:  1.2, // Equal width and height
-		MouthSizeRatio:   0.3, // Small round mouth
+		MouthSizeRatio:   0.4, // Round mouth
 		MouthOffsetRatio: 0.6, // Close to center (spherical)
 	},
 	"shark": {
-		BodyWidthRatio:   3.0,  // Streamlined predator
+		BodyWidthRatio:   1.8,  // Streamlined predator
 		BodyHeightRatio:  0.9,  // Sleek profile
 		MouthSizeRatio:   0.35, // Large predator mouth
-		MouthOffsetRatio: 1.4,  // Forward positioned
+		MouthOffsetRatio: 0.9,  // Forward positioned
 	},
 	"sacabambaspis": {
-		BodyWidthRatio:   2.5, // Elongated oval prehistoric fish
+		BodyWidthRatio:   2.0, // Elongated oval prehistoric fish
 		BodyHeightRatio:  1.0, // Moderate height
-		MouthSizeRatio:   0.3, // Standard mouth
-		MouthOffsetRatio: 1.2, // Front positioned
+		MouthSizeRatio:   0.4, // Standard mouth
+		MouthOffsetRatio: 0.9, // Front positioned
 	},
 }
 
