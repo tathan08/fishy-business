@@ -2,16 +2,19 @@
 
 import { useEffect, useRef, forwardRef, useState } from 'react';
 import type { GameStatePayload, FoodState } from '@/types/game';
+import type { InputHandler } from '@/lib/input';
 import { drawFish } from './rendering/drawFish';
 import { drawMinimap } from './rendering/drawMinimap';
 import { drawLeaderboard } from './rendering/drawLeaderboard';
 import { drawKillFeed } from './rendering/drawKillFeed';
+import { drawBoostMeter } from './rendering/drawBoostMeter';
 import { calculateCamera } from './rendering/camera';
 
 interface Props {
     gameState: GameStatePayload | null;
     worldWidth: number;
     worldHeight: number;
+    inputHandler: InputHandler | null;
 }
 
 // Random death messages for entertainment
@@ -52,7 +55,7 @@ const KILL_MESSAGES = [
 ];
 
 const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
-    function GameCanvas({ gameState, worldWidth, worldHeight }, ref) {
+    function GameCanvas({ gameState, worldWidth, worldHeight, inputHandler }, ref) {
         const canvasRef = useRef<HTMLCanvasElement>(null);
         const animationFrameRef = useRef<number | undefined>(undefined);
         const previousStateRef = useRef<GameStatePayload | null>(null);
@@ -284,6 +287,19 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                 // Draw player (on top)
                 if (player.alive !== false) {
                     drawFish(ctx, player, true);
+
+                    // Draw stamina bar below player's fish (in world coordinates)
+                    if (inputHandler) {
+                        drawBoostMeter(
+                            ctx,
+                            inputHandler.getBoostMeter(),
+                            inputHandler.getIsBoosting(),
+                            player.x,
+                            player.y,
+                            player.size
+                        );
+                    }
+
                     wasAliveRef.current = true; // Track that player was alive
                 } else {
                     // Player just died - pick new random message

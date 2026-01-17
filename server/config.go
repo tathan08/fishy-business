@@ -15,8 +15,8 @@ const (
 	MinPlayerSize     = 10.0
 	MaxPlayerSize     = 200.0
 	PlayerSpeed       = 200.0 // base speed
-	BoostMultiplier   = 1.1   // slower boost speed
-	BoostCostPerSec   = 2.0   // size loss per second when boosting
+	BoostMultiplier   = 2.0   // slower boost speed
+	BoostCostPerSec   = 3.0   // size loss per second when boosting
 	ViewDistance      = 600.0 // how far players can see (reduced for bandwidth)
 
 	// Food configuration
