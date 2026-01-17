@@ -161,7 +161,50 @@ export default function GamePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-blue-900 to-blue-600 flex flex-col items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-b from-blue-900 to-blue-600 flex flex-col items-center justify-center p-4 relative">
+            {/* Face Tracking Controls - Top Right */}
+            <div className="absolute top-4 right-4 flex gap-2 items-center z-10">
+                <button
+                    onClick={() => {
+                        console.log('Button clicked! useFaceTracking:', useFaceTracking);
+                        toggleFaceTracking();
+                    }}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-all text-sm ${
+                        useFaceTracking
+                            ? 'bg-red-500 hover:bg-red-600'
+                            : 'bg-green-500 hover:bg-green-600'
+                    }`}
+                >
+                    {useFaceTracking ? '🎥 Disable Face Tracking' : '🎥 Enable Face Tracking'}
+                </button>
+                
+                {useFaceTracking && faceTrackingCalibrated && (
+                    <button
+                        onClick={recalibrateFaceTracking}
+                        className="px-4 py-2 rounded-lg font-semibold bg-yellow-500 hover:bg-yellow-600 transition-all text-sm"
+                    >
+                        🎯 Recalibrate
+                    </button>
+                )}
+            </div>
+
+            {/* Status Messages - Top Left */}
+            {useFaceTracking && !faceTrackingCalibrated && (
+                <div className="absolute top-4 left-4 z-10">
+                    <p className="text-yellow-300 animate-pulse text-sm bg-black/30 px-3 py-2 rounded-lg">
+                        📹 Look at the camera to calibrate...
+                    </p>
+                </div>
+            )}
+
+            {faceTrackingError && (
+                <div className="absolute top-4 left-4 z-10">
+                    <p className="text-red-300 text-sm bg-black/30 px-3 py-2 rounded-lg">
+                        ⚠️ {faceTrackingError}
+                    </p>
+                </div>
+            )}
+
             <div className="mb-4 text-white text-center">
                 <h1 className="text-2xl font-bold">🐟 Fishy Business</h1>
                 <p className="text-sm">
@@ -176,46 +219,8 @@ export default function GamePage() {
                 worldHeight={worldSize.height}
             />
 
-            <div className="mt-4 text-white text-sm text-center space-y-2">
+            <div className="mt-4 text-white text-sm text-center">
                 <p>Playing as: <span className="font-bold text-yellow-400">{username}</span></p>
-                
-                {/* Face Tracking Controls */}
-                <div className="flex gap-2 justify-center items-center">
-                    <button
-                        onClick={() => {
-                            console.log('Button clicked! useFaceTracking:', useFaceTracking);
-                            toggleFaceTracking();
-                        }}
-                        className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                            useFaceTracking
-                                ? 'bg-red-500 hover:bg-red-600'
-                                : 'bg-green-500 hover:bg-green-600'
-                        }`}
-                    >
-                        {useFaceTracking ? '🎥 Disable Face Tracking' : '🎥 Enable Face Tracking'}
-                    </button>
-                    
-                    {useFaceTracking && faceTrackingCalibrated && (
-                        <button
-                            onClick={recalibrateFaceTracking}
-                            className="px-4 py-2 rounded-lg font-semibold bg-yellow-500 hover:bg-yellow-600 transition-all"
-                        >
-                            🎯 Recalibrate
-                        </button>
-                    )}
-                </div>
-
-                {useFaceTracking && !faceTrackingCalibrated && (
-                    <p className="text-yellow-300 animate-pulse">
-                        📹 Look at the camera to calibrate...
-                    </p>
-                )}
-
-                {faceTrackingError && (
-                    <p className="text-red-300">
-                        ⚠️ {faceTrackingError}
-                    </p>
-                )}
             </div>
         </div>
     );
