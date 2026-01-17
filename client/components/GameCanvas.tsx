@@ -197,8 +197,8 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                 // Request next frame
                 animationFrameRef.current = requestAnimationFrame(render);
             };
-
-            render();
+            
+            render(performance.now());
 
             return () => {
                 if (animationFrameRef.current) {

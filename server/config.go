@@ -7,7 +7,7 @@ const (
 
 	// Game loop configuration
 	TickRate      = 60              // Game updates per second
-	BroadcastRate = 10              // State broadcasts per second
+	BroadcastRate = 20              // State broadcasts per second
 	TickInterval  = 1000 / TickRate // milliseconds
 
 	// Player configuration
