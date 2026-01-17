@@ -1,26 +1,22 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { GameStatePayload, PlayerState, FoodState } from '@/types/game';
+import type { GameStatePayload, FoodState } from '@/types/game';
+import { drawFish } from './rendering/drawFish';
+import { drawMinimap } from './rendering/drawMinimap';
+import { drawLeaderboard } from './rendering/drawLeaderboard';
+import { calculateCamera } from './rendering/camera';
 
 interface Props {
     gameState: GameStatePayload | null;
     worldWidth: number;
     worldHeight: number;
-    onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
 }
 
-export default function GameCanvas({ gameState, worldWidth, worldHeight, onCanvasReady }: Props) {
+export default function GameCanvas({ gameState, worldWidth, worldHeight }: Props) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationFrameRef = useRef<number | undefined>(undefined);
     const backgroundImageRef = useRef<HTMLImageElement | null>(null);
-
-    // Notify parent when canvas is ready
-    useEffect(() => {
-        if (canvasRef.current && onCanvasReady) {
-            onCanvasReady(canvasRef.current);
-        }
-    }, [onCanvasReady]);
 
     // Preload background image
     useEffect(() => {
@@ -39,28 +35,43 @@ export default function GameCanvas({ gameState, worldWidth, worldHeight, onCanva
         if (!ctx) return;
 
         const render = () => {
-            // Draw background image if loaded, otherwise use solid color
+            // Clear canvas
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const player = gameState.you;
+
+            // Calculate camera position
+            const { cameraX, cameraY } = calculateCamera(
+                player.x,
+                player.y,
+                canvas.width,
+                canvas.height,
+                worldWidth,
+                worldHeight
+            );
+
+            // === MAIN GAME VIEW ===
+            ctx.save();
+            ctx.translate(cameraX, cameraY);
+
+            // Draw background
             if (backgroundImageRef.current) {
-                // Draw tiled background
                 const pattern = ctx.createPattern(backgroundImageRef.current, 'repeat');
                 if (pattern) {
                     ctx.fillStyle = pattern;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillRect(0, 0, worldWidth, worldHeight);
                 }
             } else {
-                // Fallback solid color while image loads
-                ctx.fillStyle = '#0c4a6e'; // Deep ocean blue
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Fallback solid color
+                ctx.fillStyle = '#0c4a6e';
+                ctx.fillRect(0, 0, worldWidth, worldHeight);
             }
 
-            // Calculate camera position (centered on player)
-            const player = gameState.you;
-            const cameraX = canvas.width / 2 - player.x;
-            const cameraY = canvas.height / 2 - player.y;
-
-            // Save context state
-            ctx.save();
-            ctx.translate(cameraX, cameraY);
+            // Draw world border
+            ctx.strokeStyle = '#ff6b6b';
+            ctx.lineWidth = 20;
+            ctx.strokeRect(0, 0, worldWidth, worldHeight);
 
             // Draw food
             gameState.food.forEach((food: FoodState) => {
@@ -71,7 +82,7 @@ export default function GameCanvas({ gameState, worldWidth, worldHeight, onCanva
             });
 
             // Draw other players
-            gameState.others.forEach((otherPlayer: PlayerState) => {
+            gameState.others.forEach((otherPlayer) => {
                 if (otherPlayer.alive !== false) {
                     drawFish(ctx, otherPlayer, false);
                 }
@@ -81,7 +92,7 @@ export default function GameCanvas({ gameState, worldWidth, worldHeight, onCanva
             if (player.alive !== false) {
                 drawFish(ctx, player, true);
             } else {
-                // Player is dead
+                // Player is dead - show death screen
                 ctx.restore();
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                 ctx.font = 'bold 32px Arial';
@@ -96,12 +107,14 @@ export default function GameCanvas({ gameState, worldWidth, worldHeight, onCanva
                         canvas.height / 2 + 20
                     );
                 }
+                animationFrameRef.current = requestAnimationFrame(render);
                 return;
             }
 
             ctx.restore();
 
-            // Draw leaderboard
+            // === UI OVERLAYS ===
+            drawMinimap(ctx, gameState, canvas, worldWidth, worldHeight, cameraX, cameraY);
             drawLeaderboard(ctx, gameState, canvas.width, player);
 
             // Request next frame
@@ -125,80 +138,4 @@ export default function GameCanvas({ gameState, worldWidth, worldHeight, onCanva
             className="border-4 border-blue-900 rounded-lg"
         />
     );
-}
-
-function drawFish(
-    ctx: CanvasRenderingContext2D,
-    fish: PlayerState,
-    isPlayer: boolean
-) {
-    // Fish color
-    ctx.fillStyle = isPlayer ? '#fbbf24' : '#60a5fa'; // Yellow for player, blue for others
-
-    // Draw fish body (circle)
-    ctx.beginPath();
-    ctx.arc(fish.x, fish.y, fish.size, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw eye
-    ctx.fillStyle = '#000000';
-    ctx.beginPath();
-    ctx.arc(fish.x + fish.size / 3, fish.y - fish.size / 4, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw username above fish
-    ctx.fillStyle = isPlayer ? '#fbbf24' : '#ffffff';
-    ctx.font = 'bold 14px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(fish.name || 'Unknown', fish.x, fish.y - fish.size - 10);
-
-    // Draw size/score
-    ctx.font = '12px Arial';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.fillText(fish.size.toFixed(0), fish.x, fish.y + 4);
-}
-
-function drawLeaderboard(
-    ctx: CanvasRenderingContext2D,
-    gameState: GameStatePayload,
-    canvasWidth: number,
-    player: PlayerState
-) {
-    const padding = 20;
-    const lineHeight = 25;
-    const startY = padding;
-
-    // Background
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.fillRect(
-        canvasWidth - 220,
-        padding,
-        200,
-        lineHeight * (gameState.leaderboard.length + 2) + 10
-    );
-
-    // Title
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 18px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText('Leaderboard', canvasWidth - 210, startY + 20);
-
-    // Leaderboard entries
-    ctx.font = '14px Arial';
-    gameState.leaderboard.forEach((entry, index) => {
-        const y = startY + 50 + index * lineHeight;
-        const isCurrentPlayer = entry.name === player.name;
-
-        ctx.fillStyle = isCurrentPlayer ? '#fbbf24' : '#ffffff';
-        ctx.fillText(
-            `${index + 1}. ${entry.name}`,
-            canvasWidth - 210,
-            y
-        );
-        ctx.fillText(
-            entry.score.toFixed(0),
-            canvasWidth - 50,
-            y
-        );
-    });
 }
