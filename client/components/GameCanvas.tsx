@@ -357,7 +357,7 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                     cancelAnimationFrame(animationFrameRef.current);
                 }
             };
-        }, [gameState, worldWidth, worldHeight]);
+        }, [gameState, worldWidth, worldHeight, killFeed]);
 
         return (
             <canvas

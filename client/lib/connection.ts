@@ -251,6 +251,9 @@ export class GameConnection {
         const worldHeight = view.getFloat64(offset);
         offset += 8;
         
+        // Cache our client ID
+        this.clientId = id;
+        
         this.onWelcome({
             id,
             worldWidth,
@@ -287,22 +290,22 @@ export class GameConnection {
             offset = newOffset;
         }
         
-        // Decode leaderboard (may be empty if sent separately)
-        const leaderboardCount = view.getUint16(offset);
-        offset += 2;
-        const leaderboard: any[] = [];
-        for (let i = 0; i < leaderboardCount; i++) {
-            const { entry, newOffset } = this.decodeLeaderboardEntry(view, offset);
-            leaderboard.push(entry);
-            offset = newOffset;
-        }
+        // Leaderboard no longer sent with state - use cached
+        const leaderboard = this.lastGameState?.leaderboard || [];
+        
+        // Merge player with cached info
+        const fullPlayer = {
+            ...player,
+            id: this.clientId || '',
+            name: this.playerInfoCache.get(this.clientId || '')?.name || '',
+            model: this.playerInfoCache.get(this.clientId || '')?.model || '',
+        };
         
         const state = {
-            you: player,
+            you: fullPlayer,
             others,
             food,
-            // Preserve previous leaderboard if current update has none
-            leaderboard: leaderboard.length > 0 ? leaderboard : (this.lastGameState?.leaderboard || []),
+            leaderboard,
         };
         
         this.lastGameState = state;
@@ -339,17 +342,7 @@ export class GameConnection {
         const hasKilledBy = (flags & 2) !== 0;
         const hasRespawnIn = (flags & 4) !== 0;
         
-        // ID
-        const { str: id, newOffset: idOffset } = this.readString(view, offset);
-        offset = idOffset;
-        
-        // Name
-        const { str: name, newOffset: nameOffset } = this.readString(view, offset);
-        offset = nameOffset;
-        
-        // Model
-        const { str: model, newOffset: modelOffset } = this.readString(view, offset);
-        offset = modelOffset;
+        // No ID, Name, Model - those are cached from welcome/playerInfo
         
         // Position, velocity, rotation, size
         const x = view.getFloat32(offset); offset += 4;
@@ -379,7 +372,7 @@ export class GameConnection {
         }
         
         return {
-            player: { id, name, model, x, y, velX, velY, rotation, size, score, alive, seq, killedBy, respawnIn },
+            player: { x, y, velX, velY, rotation, size, score, alive, seq, killedBy, respawnIn },
             newOffset: offset
         };
     }

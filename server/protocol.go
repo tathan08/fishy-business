@@ -134,13 +134,13 @@ func encodeWelcome(payload WelcomePayload) ([]byte, error) {
 }
 
 func encodeGameState(state GameStatePayload) ([]byte, error) {
-	// Estimate size
-	capacity := 1 + 256 + len(state.Others)*64 + len(state.Food)*20 + len(state.Leaderboard)*64
+	// Estimate size (no leaderboard - sent separately)
+	capacity := 1 + 64 + len(state.Others)*32 + len(state.Food)*20
 	buf := make([]byte, 0, capacity)
 	
 	buf = append(buf, MsgTypeState)
 	
-	// Encode player state
+	// Encode player state (no ID/name/model)
 	buf = encodePlayerState(buf, state.You)
 	
 	// Encode others count + data
@@ -155,11 +155,7 @@ func encodeGameState(state GameStatePayload) ([]byte, error) {
 		buf = encodeFoodState(buf, food)
 	}
 	
-	// Encode leaderboard count + data
-	buf = append(buf, byte(len(state.Leaderboard)>>8), byte(len(state.Leaderboard)))
-	for _, entry := range state.Leaderboard {
-		buf = encodeLeaderboardEntry(buf, entry)
-	}
+	// Leaderboard is sent separately at lower frequency
 	
 	return buf, nil
 }
@@ -178,13 +174,7 @@ func encodePlayerState(buf []byte, player PlayerState) []byte {
 	}
 	buf = append(buf, flags)
 	
-	// ID length + string
-	buf = appendString(buf, player.ID)
-	// Name length + string
-	buf = appendString(buf, player.Name)
-	// Model length + string
-	buf = appendString(buf, player.Model)
-	
+	// Only send dynamic data (no ID, Name, Model - those are sent once)
 	// Position and velocity (float32 for bandwidth)
 	buf = appendFloat32(buf, float32(player.X))
 	buf = appendFloat32(buf, float32(player.Y))
