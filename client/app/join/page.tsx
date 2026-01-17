@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { getOrCreateFishProfile } from '@/lib/generateFishProfile';
 
 type FishModel = 'swordfish' | 'blobfish' | 'pufferfish' | 'shark' | 'sacabambaspis';
 
@@ -22,6 +23,10 @@ export default function JoinPage() {
 
     const handleJoin = () => {
         if (username.trim()) {
+            // Generate or get existing fish profile (happens ONCE per browser)
+            const profile = getOrCreateFishProfile(username.trim());
+            console.log('Fish profile:', profile);
+
             // Store username and fish model for later use
             sessionStorage.setItem('username', username.trim());
             sessionStorage.setItem('fishModel', selectedFish);
@@ -41,7 +46,7 @@ export default function JoinPage() {
                     🐟 Choose Your Fish
                 </h2>
                 <p className="text-white/80 text-center mb-8">Pick your species and name</p>
-                
+
                 {/* Fish Model Selection */}
                 <div className="mb-8">
                     <label className="text-white font-semibold mb-3 block text-center">
@@ -74,9 +79,8 @@ export default function JoinPage() {
                                 ) : (
                                     <div className="text-4xl mb-2">{fish.emoji}</div>
                                 )}
-                                <div className={`text-xs font-medium text-center ${
-                                    selectedFish === fish.id ? 'text-blue-900' : 'text-white'
-                                }`}>
+                                <div className={`text-xs font-medium text-center ${selectedFish === fish.id ? 'text-blue-900' : 'text-white'
+                                    }`}>
                                     {fish.name}
                                 </div>
                             </button>

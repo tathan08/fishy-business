@@ -7,7 +7,10 @@ import { InputHandler } from '@/lib/input';
 import { FaceTrackingInput } from '@/lib/faceTracking';
 import GameCanvas from '@/components/GameCanvas';
 import LoadingScreen from '@/components/LoadingScreen';
+import { FishProfileDisplay } from '@/components/FishProfileDisplay';
+import { getFishProfile } from '@/lib/generateFishProfile';
 import type { GameStatePayload, WelcomePayload } from '@/types/game';
+import type { FishProfile } from '@/lib/generateFishProfile';
 
 export default function GamePage() {
     const router = useRouter();
@@ -19,6 +22,7 @@ export default function GamePage() {
     const [faceTrackingCalibrated, setFaceTrackingCalibrated] = useState(false);
     const [faceTrackingError, setFaceTrackingError] = useState<string | null>(null);
     const [faceTrackingDirection, setFaceTrackingDirection] = useState({ x: 0, y: 0 });
+    const [fishProfile, setFishProfile] = useState<FishProfile | null>(null);
 
     const connectionRef = useRef<GameConnection | null>(null);
     const inputHandlerRef = useRef<InputHandler | null>(null);
@@ -29,7 +33,7 @@ export default function GamePage() {
         // Get username from session storage
         const storedUsername = sessionStorage.getItem('username');
         const storedFishModel = sessionStorage.getItem('fishModel') as any;
-        
+
         if (!storedUsername) {
             // Redirect to join page if no username
             router.push('/join');
@@ -37,6 +41,12 @@ export default function GamePage() {
         }
 
         setUsername(storedUsername);
+
+        // Load fish profile from localStorage
+        const profile = getFishProfile();
+        if (profile) {
+            setFishProfile(profile);
+        }
 
         // Initialize connection
         const connection = new GameConnection();
@@ -178,6 +188,9 @@ export default function GamePage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-blue-900 to-blue-600 flex flex-col items-center justify-center p-4 relative">
+            {/* Fish Profile Display - Top Left */}
+            {fishProfile && <FishProfileDisplay profile={fishProfile} />}
+
             {/* Face Tracking Controls - Top Right */}
             <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-10">
                 <div className="flex gap-2 items-center">
@@ -186,15 +199,14 @@ export default function GamePage() {
                             console.log('Button clicked! useFaceTracking:', useFaceTracking);
                             toggleFaceTracking();
                         }}
-                        className={`px-4 py-2 rounded-lg font-semibold transition-all text-sm ${
-                            useFaceTracking
-                                ? 'bg-red-500 hover:bg-red-600'
-                                : 'bg-green-500 hover:bg-green-600'
-                        }`}
+                        className={`px-4 py-2 rounded-lg font-semibold transition-all text-sm ${useFaceTracking
+                            ? 'bg-red-500 hover:bg-red-600'
+                            : 'bg-green-500 hover:bg-green-600'
+                            }`}
                     >
                         {useFaceTracking ? '🎥 Disable Face Tracking' : '🎥 Enable Face Tracking'}
                     </button>
-                    
+
                     {useFaceTracking && faceTrackingCalibrated && (
                         <button
                             onClick={recalibrateFaceTracking}
@@ -211,7 +223,7 @@ export default function GamePage() {
                         <div className="text-white text-xs font-semibold">Swimming Direction</div>
                         <div className="relative w-20 h-20 bg-blue-900/50 rounded-full flex items-center justify-center">
                             {/* Arrow pointing in movement direction */}
-                            <div 
+                            <div
                                 className="text-4xl transition-transform duration-100"
                                 style={{
                                     transform: `rotate(${Math.atan2(faceTrackingDirection.y, faceTrackingDirection.x) * 180 / Math.PI + 90}deg)`,
@@ -224,9 +236,9 @@ export default function GamePage() {
                 )}
             </div>
 
-            {/* Status Messages - Top Left */}
+            {/* Status Messages - Below Fish Profile */}
             {useFaceTracking && !faceTrackingCalibrated && (
-                <div className="absolute top-4 left-4 z-10">
+                <div className="absolute top-80 left-4 z-10">
                     <p className="text-yellow-300 animate-pulse text-sm bg-black/30 px-3 py-2 rounded-lg">
                         📹 Look at the camera to calibrate...
                     </p>
@@ -234,7 +246,7 @@ export default function GamePage() {
             )}
 
             {faceTrackingError && (
-                <div className="absolute top-4 left-4 z-10">
+                <div className="absolute top-80 left-4 z-10">
                     <p className="text-red-300 text-sm bg-black/30 px-3 py-2 rounded-lg">
                         ⚠️ {faceTrackingError}
                     </p>
