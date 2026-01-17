@@ -23,10 +23,10 @@ export class FaceTrackingInput {
     // Smoothing
     private smoothedDirX = 0;
     private smoothedDirY = 0;
-    private readonly smoothing = 0.7;
+    private readonly smoothing = 0.85;
     
     // Sensitivity
-    private readonly sensitivity = 0.015;
+    private readonly sensitivity = 0.02;
     
     // MediaPipe variables
     private faceLandmarker: FaceLandmarker | null = null;
