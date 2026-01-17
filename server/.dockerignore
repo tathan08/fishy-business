@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+fishy-business-server
+
+# Test files
+*.test
+*.out
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Fly.io
+fly.toml
+.fly
