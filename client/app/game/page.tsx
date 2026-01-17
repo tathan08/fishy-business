@@ -58,7 +58,7 @@ export default function GamePage() {
         };
 
         // Connect to server
-        const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'ws://localhost:8080/ws';
+        const serverUrl = process.env.NEXT_PUBLIC_WS_SERVER_URL || 'ws://localhost:8080/ws';
         console.log('Connecting to:', serverUrl);
         connection.connect(serverUrl, storedUsername);
 
