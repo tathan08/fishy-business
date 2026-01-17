@@ -220,7 +220,7 @@ export class GameConnection {
         return offset; // Return total bytes consumed
     }
 
-    private decodeGameState(view: DataView): void {
+    private decodeGameState(view: DataView): number {
         let offset = 1;
         
         // Decode player state
