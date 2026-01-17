@@ -79,6 +79,13 @@ type LeaderboardEntry struct {
 	Score int    `json:"score"`
 }
 
+// PlayerInfoPayload contains player metadata (sent once)
+type PlayerInfoPayload struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Model string `json:"model"`
+}
+
 // Binary Protocol Implementation
 // Message Types
 const (
@@ -86,6 +93,7 @@ const (
 	MsgTypeState       byte = 2
 	MsgTypePong        byte = 3
 	MsgTypeLeaderboard byte = 4
+	MsgTypePlayerInfo  byte = 5 // Send player name/model once
 )
 
 // EncodeBinaryMessage encodes a server message into binary format
@@ -97,6 +105,8 @@ func EncodeBinaryMessage(msg ServerMessage) ([]byte, error) {
 		return encodeGameState(msg.Payload.(GameStatePayload))
 	case "leaderboard":
 		return encodeLeaderboard(msg.Payload.([]LeaderboardEntry))
+	case "playerInfo":
+		return encodePlayerInfo(msg.Payload.(PlayerInfoPayload))
 	case "pong":
 		return []byte{MsgTypePong}, nil
 	default:
@@ -199,9 +209,8 @@ func encodePlayerState(buf []byte, player PlayerState) []byte {
 }
 
 func encodeOtherPlayer(buf []byte, player OtherPlayerState) []byte {
+	// Only send ID (for lookup) and position data - no name/model
 	buf = appendString(buf, player.ID)
-	buf = appendString(buf, player.Name)
-	buf = appendString(buf, player.Model)
 	buf = appendFloat32(buf, float32(player.X))
 	buf = appendFloat32(buf, float32(player.Y))
 	buf = appendFloat32(buf, float32(player.VelX))
@@ -234,6 +243,15 @@ func encodeLeaderboard(entries []LeaderboardEntry) ([]byte, error) {
 		buf = encodeLeaderboardEntry(buf, entry)
 	}
 	
+	return buf, nil
+}
+
+func encodePlayerInfo(info PlayerInfoPayload) ([]byte, error) {
+	buf := make([]byte, 0, 64)
+	buf = append(buf, MsgTypePlayerInfo)
+	buf = appendString(buf, info.ID)
+	buf = appendString(buf, info.Name)
+	buf = appendString(buf, info.Model)
 	return buf, nil
 }
 

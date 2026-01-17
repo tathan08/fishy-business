@@ -414,6 +414,8 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 
 	// Other players within view distance
 	others := make([]OtherPlayerState, 0)
+	newPlayers := make([]PlayerInfoPayload, 0) // Track new players for this client
+	
 	for _, other := range w.Players {
 		if other.ID == player.ID || !other.Alive {
 			continue
@@ -421,18 +423,39 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 
 		distance := Distance(player.Position, other.Position)
 		if distance <= ViewDistance {
+			// Check if this is the first time this client sees this player
+			if !player.Client.SeenPlayers[other.ID] {
+				player.Client.mu.Lock()
+				player.Client.SeenPlayers[other.ID] = true
+				player.Client.mu.Unlock()
+				
+				// Queue player info message
+				newPlayers = append(newPlayers, PlayerInfoPayload{
+					ID:    other.ID,
+					Name:  other.Name,
+					Model: other.Model,
+				})
+			}
+			
 			others = append(others, OtherPlayerState{
 				ID:       other.ID,
-				Name:     other.Name,
 				X:        other.Position.X,
 				Y:        other.Position.Y,
 				VelX:     other.Velocity.X,
 				VelY:     other.Velocity.Y,
 				Rotation: other.Rotation,
 				Size:     other.Size,
-				Model:    other.Model,
+				// Name and Model removed - sent once via PlayerInfo
 			})
 		}
+	}
+	
+	// Send new player info messages immediately
+	for _, info := range newPlayers {
+		player.Client.SendMessage(ServerMessage{
+			Type:    "playerInfo",
+			Payload: info,
+		})
 	}
 
 	// Food within view distance

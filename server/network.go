@@ -11,8 +11,9 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:    2048,
+	WriteBufferSize:   8192, // Larger for batching
+	EnableCompression: true, // Enable compression like slither.io
 	CheckOrigin: func(r *http.Request) bool {
 		return true // Allow all origins for development
 	},
@@ -20,21 +21,23 @@ var upgrader = websocket.Upgrader{
 
 // Client represents a connected WebSocket client
 type Client struct {
-	ID     string
-	Conn   *websocket.Conn
-	Send   chan []byte
-	World  *World
-	Player *Player
-	mu     sync.Mutex
+	ID          string
+	Conn        *websocket.Conn
+	Send        chan []byte
+	World       *World
+	Player      *Player
+	SeenPlayers map[string]bool // Track which players this client has seen
+	mu          sync.Mutex
 }
 
 // NewClient creates a new client
 func NewClient(id string, conn *websocket.Conn, world *World) *Client {
 	return &Client{
-		ID:    id,
-		Conn:  conn,
-		Send:  make(chan []byte, WriteChannelSize),
-		World: world,
+		ID:          id,
+		Conn:        conn,
+		Send:        make(chan []byte, WriteChannelSize),
+		World:       world,
+		SeenPlayers: make(map[string]bool),
 	}
 }
 

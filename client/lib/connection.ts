@@ -15,6 +15,7 @@ export class GameConnection {
     private inputSeq: number = 0;
     private inputInterval: number | null = null;
     private lastGameState: GameStatePayload | null = null;
+    private playerInfoCache: Map<string, { name: string; model: string }> = new Map();
 
     // Current input state (updated by input handler)
     private currentInput = {
@@ -187,6 +188,9 @@ export class GameConnection {
                 case 4: // Leaderboard
                     messageLength = this.decodeLeaderboard(view);
                     break;
+                case 5: // PlayerInfo
+                    messageLength = this.decodePlayerInfo(view);
+                    break;
                 default:
                     console.warn('Unknown message type:', msgType);
                     return; // Can't continue if we don't know the length
@@ -347,12 +351,7 @@ export class GameConnection {
         const { str: id, newOffset: idOffset } = this.readString(view, offset);
         offset = idOffset;
         
-        const { str: name, newOffset: nameOffset } = this.readString(view, offset);
-        offset = nameOffset;
-        
-        const { str: model, newOffset: modelOffset } = this.readString(view, offset);
-        offset = modelOffset;
-        
+        // Position data only - name/model from cache
         const x = view.getFloat32(offset); offset += 4;
         const y = view.getFloat32(offset); offset += 4;
         const velX = view.getFloat32(offset); offset += 4;
@@ -360,10 +359,33 @@ export class GameConnection {
         const rotation = view.getFloat32(offset); offset += 4;
         const size = view.getFloat32(offset); offset += 4;
         
+        // Get cached name/model
+        const cachedInfo = this.playerInfoCache.get(id);
+        const name = cachedInfo?.name || 'Unknown';
+        const model = cachedInfo?.model || 'swordfish';
+        
         return {
             other: { id, name, model, x, y, velX, velY, rotation, size },
             newOffset: offset
         };
+    }
+
+    private decodePlayerInfo(view: DataView): number {
+        let offset = 1;
+        
+        const { str: id, newOffset: idOffset } = this.readString(view, offset);
+        offset = idOffset;
+        
+        const { str: name, newOffset: nameOffset } = this.readString(view, offset);
+        offset = nameOffset;
+        
+        const { str: model, newOffset: modelOffset } = this.readString(view, offset);
+        offset = modelOffset;
+        
+        // Cache player info
+        this.playerInfoCache.set(id, { name, model });
+        
+        return offset;
     }
 
     private decodeFoodState(view: DataView, offset: number): { foodItem: any; newOffset: number } {
