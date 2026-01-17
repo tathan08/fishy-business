@@ -22,6 +22,13 @@ export class GameConnection {
         boost: false,
     };
 
+    // Track last sent input to avoid redundant sends
+    private lastSentInput = {
+        dirX: 0,
+        dirY: 0,
+        boost: false,
+    };
+
     // Callbacks for frontend to implement
     onWelcome: (data: WelcomePayload) => void = () => { };
     onStateUpdate: (state: GameStatePayload) => void = () => { };
@@ -78,10 +85,10 @@ export class GameConnection {
     }
 
     private startInputLoop(): void {
-        // Send input 20 times per second (every 50ms)
+        // Send input 15 times per second (every 66ms)
         this.inputInterval = window.setInterval(() => {
             this.sendInput();
-        }, 50);
+        }, 66);
     }
 
     private stopInputLoop(): void {
@@ -92,14 +99,29 @@ export class GameConnection {
     }
 
     private sendInput(): void {
-        this.inputSeq++;
-        this.send({
-            type: "input",
-            dirX: this.currentInput.dirX,
-            dirY: this.currentInput.dirY,
-            boost: this.currentInput.boost,
-            seq: this.inputSeq,
-        });
+        const { dirX, dirY, boost } = this.currentInput;
+        const last = this.lastSentInput;
+        
+        // Only send if input changed significantly (threshold for float comparison)
+        const threshold = 0.01;
+        const hasChanged = 
+            Math.abs(dirX - last.dirX) > threshold || 
+            Math.abs(dirY - last.dirY) > threshold || 
+            boost !== last.boost;
+        
+        if (hasChanged) {
+            this.inputSeq++;
+            this.send({
+                type: "input",
+                dirX,
+                dirY,
+                boost,
+                seq: this.inputSeq,
+            });
+            
+            // Update last sent state
+            this.lastSentInput = { dirX, dirY, boost };
+        }
     }
 
     private send(msg: ClientMessage): void {
