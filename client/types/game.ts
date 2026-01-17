@@ -29,6 +29,8 @@ export interface PlayerState {
     name?: string;
     x: number;
     y: number;
+    velX?: number;
+    velY?: number;
     size: number;
     score?: number;
     alive?: boolean;
