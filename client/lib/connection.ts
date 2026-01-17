@@ -206,33 +206,56 @@ export class GameConnection {
         const totalLength = buffer.byteLength;
         
         while (offset < totalLength) {
+            // Check if we have at least 1 byte for message type
+            if (offset >= totalLength) {
+                break;
+            }
+            
             const view = new DataView(buffer, offset);
+            
+            // Check if there's at least 1 byte for the message type
+            if (view.byteLength < 1) {
+                console.warn('Not enough bytes for message type at offset', offset);
+                break;
+            }
+            
             const msgType = view.getUint8(0);
             
             let messageLength = 0;
             
-            switch (msgType) {
-                case 1: // Welcome
-                    messageLength = this.decodeWelcome(view);
-                    break;
-                case 2: // State
-                    messageLength = this.decodeGameState(view);
-                    break;
-                case 3: // Pong
-                    messageLength = 1;
-                    break;
-                case 4: // Leaderboard
-                    messageLength = this.decodeLeaderboard(view);
-                    break;
-                case 5: // PlayerInfo
-                    messageLength = this.decodePlayerInfo(view);
-                    break;
-                default:
-                    console.warn('Unknown message type:', msgType);
-                    return; // Can't continue if we don't know the length
+            try {
+                switch (msgType) {
+                    case 1: // Welcome
+                        messageLength = this.decodeWelcome(view);
+                        break;
+                    case 2: // State
+                        messageLength = this.decodeGameState(view);
+                        break;
+                    case 3: // Pong
+                        messageLength = 1;
+                        break;
+                    case 4: // Leaderboard
+                        messageLength = this.decodeLeaderboard(view);
+                        break;
+                    case 5: // PlayerInfo
+                        messageLength = this.decodePlayerInfo(view);
+                        break;
+                    default:
+                        console.warn('Unknown message type:', msgType, 'at offset', offset);
+                        return; // Can't continue if we don't know the length
+                }
+                
+                // Validate message length
+                if (messageLength <= 0 || messageLength > view.byteLength) {
+                    console.error('Invalid message length:', messageLength, 'for type', msgType, 'at offset', offset);
+                    return;
+                }
+                
+                offset += messageLength;
+            } catch (error) {
+                console.error('Error decoding message type', msgType, 'at offset', offset, ':', error);
+                return;
             }
-            
-            offset += messageLength;
         }
     }
 
@@ -450,8 +473,27 @@ export class GameConnection {
     }
 
     private readString(view: DataView, offset: number): { str: string; newOffset: number } {
+        // Check if we have enough bytes to read the length
+        if (offset + 2 > view.byteLength) {
+            console.error('readString: Not enough bytes for length at offset', offset, 'view length:', view.byteLength);
+            return { str: '', newOffset: offset };
+        }
+        
         const length = view.getUint16(offset);
         offset += 2;
+        
+        // Validate string length
+        if (length > 10000) { // Reasonable max string length
+            console.error('readString: Invalid string length', length, 'at offset', offset - 2);
+            return { str: '', newOffset: offset };
+        }
+        
+        // Check if we have enough bytes for the string content
+        if (offset + length > view.byteLength) {
+            console.error('readString: Not enough bytes for string content. Need', length, 'bytes at offset', offset, 'view length:', view.byteLength);
+            return { str: '', newOffset: offset };
+        }
+        
         const bytes = new Uint8Array(view.buffer, view.byteOffset + offset, length);
         const str = new TextDecoder().decode(bytes);
         return { str, newOffset: offset + length };
