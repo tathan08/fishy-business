@@ -84,24 +84,17 @@ func (w *World) Update(dt float64) {
 	w.SpawnFoodIfNeeded()
 }
 
-// ProcessInputs drains the input queue and applies inputs
+// ProcessInputs drains the input queue and updates player input state
 func (w *World) ProcessInputs() {
 	for {
 		select {
 		case input := <-w.InputQueue:
 			if player, exists := w.Players[input.PlayerID]; exists && player.Alive {
-				// Apply input to player
-				player.Velocity = Lerp(
-					player.Velocity,
-					input.Direction.Mul(PlayerSpeed),
-					VelocityLerp,
-				)
+				// Store the input direction and boost state
+				// This persists until the next input update
+				player.InputDirection = input.Direction
+				player.InputBoost = input.Boost
 				player.LastSeq = input.Seq
-
-				// Apply boost if requested
-				if input.Boost && player.Size > MinPlayerSize {
-					player.Velocity = player.Velocity.Mul(BoostMultiplier)
-				}
 			}
 		default:
 			return
@@ -115,6 +108,15 @@ func (w *World) UpdatePhysics(dt float64) {
 		if !player.Alive {
 			continue
 		}
+
+		// Apply velocity based on current input state (persists between input updates)
+		targetVelocity := player.InputDirection.Mul(PlayerSpeed)
+		if player.InputBoost && player.Size > MinPlayerSize {
+			targetVelocity = targetVelocity.Mul(BoostMultiplier)
+		}
+		
+		// Smoothly interpolate to target velocity
+		player.Velocity = Lerp(player.Velocity, targetVelocity, VelocityLerp)
 
 		// Update position
 		player.Position = player.Position.Add(player.Velocity.Mul(dt))

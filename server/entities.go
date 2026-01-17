@@ -20,8 +20,11 @@ type Player struct {
 	RespawnTime float64
 	KilledBy    string
 	LastSeq     uint32
-	Client      *Client
-	mu          sync.RWMutex
+	// Input state - persists between updates
+	InputDirection Vec2
+	InputBoost     bool
+	Client         *Client
+	mu             sync.RWMutex
 }
 
 // NewPlayer creates a new player at a random position
@@ -30,15 +33,17 @@ func NewPlayer(id, name, model string, client *Client) *Player {
 		model = "swordfish" // Default model
 	}
 	return &Player{
-		ID:       id,
-		Name:     name,
-		Model:    model,
-		Position: Vec2{X: RandomFloat(100, WorldWidth-100), Y: RandomFloat(100, WorldHeight-100)},
-		Velocity: Vec2{X: 0, Y: 0},
-		Size:     InitialPlayerSize,
-		Score:    0,
-		Alive:    true,
-		Client:   client,
+		ID:             id,
+		Name:           name,
+		Model:          model,
+		Position:       Vec2{X: RandomFloat(100, WorldWidth-100), Y: RandomFloat(100, WorldHeight-100)},
+		Velocity:       Vec2{X: 0, Y: 0},
+		Size:           InitialPlayerSize,
+		Score:          0,
+		Alive:          true,
+		InputDirection: Vec2{X: 0, Y: 0},
+		InputBoost:     false,
+		Client:         client,
 	}
 }
 
@@ -61,6 +66,8 @@ func (p *Player) Respawn() {
 	p.Alive = true
 	p.RespawnTime = 0
 	p.KilledBy = ""
+	p.InputDirection = Vec2{X: 0, Y: 0}
+	p.InputBoost = false
 }
 
 // GetHitboxConfig returns the hitbox configuration for this player's model
