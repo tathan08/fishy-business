@@ -211,7 +211,8 @@ export class GameConnection {
                 break;
             }
             
-            const view = new DataView(buffer, offset);
+            // Create view from current offset to end of buffer
+            const view = new DataView(buffer, offset, totalLength - offset);
             
             // Check if there's at least 1 byte for the message type
             if (view.byteLength < 1) {
@@ -366,15 +367,11 @@ export class GameConnection {
     }
 
     private decodePlayerState(view: DataView, offset: number): { player: any; newOffset: number } {
-        const startOffset = offset;
-        
         // Flags
         const flags = view.getUint8(offset++);
         const alive = (flags & 1) !== 0;
         const hasKilledBy = (flags & 2) !== 0;
         const hasRespawnIn = (flags & 4) !== 0;
-        
-        console.log('decodePlayerState: offset', startOffset, 'flags', flags.toString(2), 'alive', alive, 'hasKilledBy', hasKilledBy, 'hasRespawnIn', hasRespawnIn);
         
         // No ID, Name, Model - those are cached from welcome/playerInfo
         
@@ -386,30 +383,23 @@ export class GameConnection {
         const rotation = view.getFloat32(offset); offset += 4;
         const size = view.getFloat32(offset); offset += 4;
         
-        console.log('decodePlayerState: position', {x, y, velX, velY, rotation, size}, 'offset now', offset);
-        
         // Score and seq
         const score = view.getUint32(offset); offset += 4;
         const seq = view.getUint32(offset); offset += 4;
-        
-        console.log('decodePlayerState: score', score, 'seq', seq, 'offset now', offset);
         
         // Optional fields
         let killedBy: string | undefined;
         let respawnIn: number | undefined;
         
         if (hasKilledBy) {
-            console.log('decodePlayerState: reading killedBy string at offset', offset, 'view length', view.byteLength);
             const { str, newOffset } = this.readString(view, offset);
             killedBy = str;
             offset = newOffset;
-            console.log('decodePlayerState: killedBy', killedBy, 'offset now', offset);
         }
         
         if (hasRespawnIn) {
             respawnIn = view.getFloat32(offset);
             offset += 4;
-            console.log('decodePlayerState: respawnIn', respawnIn, 'offset now', offset);
         }
         
         return {
@@ -484,15 +474,12 @@ export class GameConnection {
     }
 
     private readString(view: DataView, offset: number): { str: string; newOffset: number } {
-        console.log('readString: offset', offset, 'view.byteLength', view.byteLength, 'remaining bytes', view.byteLength - offset);
-        
         // Check if we have enough bytes to read the length
         if (offset + 2 > view.byteLength) {
             throw new Error(`readString: Not enough bytes for length at offset ${offset}, view length: ${view.byteLength}`);
         }
         
         const length = view.getUint16(offset);
-        console.log('readString: length value read:', length, 'bytes at offset', offset, '[', view.getUint8(offset), view.getUint8(offset + 1), ']');
         offset += 2;
         
         // Validate string length
@@ -507,7 +494,6 @@ export class GameConnection {
         
         const bytes = new Uint8Array(view.buffer, view.byteOffset + offset, length);
         const str = new TextDecoder().decode(bytes);
-        console.log('readString: decoded string:', str);
         return { str, newOffset: offset + length };
     }
 }
