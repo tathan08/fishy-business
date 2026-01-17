@@ -295,6 +295,8 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 		ID:    player.ID,
 		X:     player.Position.X,
 		Y:     player.Position.Y,
+		VelX:  player.Velocity.X,
+		VelY:  player.Velocity.Y,
 		Size:  player.Size,
 		Score: player.Score,
 		Alive: player.Alive,
@@ -321,6 +323,8 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 				Name:  other.Name,
 				X:     other.Position.X,
 				Y:     other.Position.Y,
+				VelX:  other.Velocity.X,
+				VelY:  other.Velocity.Y,
 				Size:  other.Size,
 				Model: other.Model,
 			})
