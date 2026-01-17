@@ -60,6 +60,7 @@ type RacingPlayer struct {
 	MouthActionTimes  []float64 // Timestamps of mouth actions for calculating speed
 	FinishTime        float64   // Time taken to finish (in seconds)
 	Finished          bool
+	Ready             bool      // Player has clicked ready
 }
 
 // RaceResult stores the final result for a player
@@ -78,6 +79,7 @@ type RacingClientMessage struct {
 	Name       string `json:"name,omitempty"`
 	Model      string `json:"model,omitempty"`
 	MouthOpen  bool   `json:"mouthOpen,omitempty"`
+	Ready      bool   `json:"ready,omitempty"`
 	Seq        uint32 `json:"seq,omitempty"`
 }
 
@@ -102,6 +104,8 @@ type RaceStatePayload struct {
 	TimeRemaining float64            `json:"timeRemaining,omitempty"` // For countdown/lobby
 	Players      []RacePlayerState   `json:"players"`
 	YourProgress RacePlayerState     `json:"yourProgress"`
+	ReadyCount   int                 `json:"readyCount"`
+	TotalPlayers int                 `json:"totalPlayers"`
 }
 
 // RacePlayerState represents a player's state in the race
@@ -112,6 +116,7 @@ type RacePlayerState struct {
 	Distance float64 `json:"distance"`
 	Progress float64 `json:"progress"` // 0.0 to 1.0
 	Finished bool    `json:"finished"`
+	Ready    bool    `json:"ready"`
 }
 
 // RaceResultsPayload contains final race results
@@ -134,7 +139,7 @@ func NewRacingWorld() *RacingWorld {
 // CreateRace creates a new race session
 func (rw *RacingWorld) CreateRace() *Race {
 	race := &Race{
-		ID:      generateID(),
+		ID:      generateClientID(),
 		State:   RaceStateLobby,
 		Players: make(map[string]*RacingPlayer),
 	}
@@ -168,17 +173,8 @@ func (rw *RacingWorld) JoinRace(client *RacingClient, playerName, model string) 
 	
 	log.Printf("Player %s joined race %s (%d/%d players)", playerName, race.ID, len(race.Players), RaceMaxPlayers)
 	
-	// Start lobby countdown if this is the first player
-	if len(race.Players) == 1 {
-		go race.StartLobbyCountdown()
-	}
-	
-	// If lobby is full, start countdown immediately
-	if len(race.Players) >= RaceMaxPlayers {
-		race.StartRaceCountdown()
-		// Create new lobby for next players
-		rw.WaitingLobby = rw.CreateRace()
-	}
+	// Broadcast state to all players so they see the new player
+	race.BroadcastState()
 	
 	return race
 }
@@ -193,6 +189,47 @@ func (r *Race) StartLobbyCountdown() {
 	// Only start if we're still in lobby and have players
 	if r.State == RaceStateLobby && len(r.Players) > 0 {
 		r.StartRaceCountdown()
+	}
+}
+
+// HandlePlayerReady marks a player as ready and starts countdown if all ready
+func (r *Race) HandlePlayerReady(playerID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	// Only handle ready in lobby state
+	if r.State != RaceStateLobby {
+		return
+	}
+	
+	player, exists := r.Players[playerID]
+	if !exists {
+		return
+	}
+	
+	player.Ready = true
+	log.Printf("Player %s is ready (%s)", player.Name, r.ID)
+	
+	// Check if all players are ready
+	allReady := true
+	readyCount := 0
+	for _, p := range r.Players {
+		if p.Ready {
+			readyCount++
+		} else {
+			allReady = false
+		}
+	}
+	
+	log.Printf("Race %s: %d/%d players ready", r.ID, readyCount, len(r.Players))
+	
+	// Start race if all players are ready (minimum 1 player)
+	if allReady && len(r.Players) > 0 {
+		log.Printf("All players ready! Starting race %s", r.ID)
+		r.StartRaceCountdown()
+	} else {
+		// Broadcast updated state to show ready status
+		r.BroadcastState()
 	}
 }
 
@@ -326,11 +363,20 @@ func (r *Race) BroadcastState() {
 				Distance: p.Distance,
 				Progress: p.Distance / RaceDistance,
 				Finished: p.Finished,
+				Ready:    p.Ready,
 			}
 			playerStates = append(playerStates, state)
 			
 			if p.ID == player.ID {
 				yourProgress = state
+			}
+		}
+		
+		// Count ready players
+		readyCount := 0
+		for _, p := range r.Players {
+			if p.Ready {
+				readyCount++
 			}
 		}
 		
@@ -349,6 +395,8 @@ func (r *Race) BroadcastState() {
 			TimeRemaining: timeRemaining,
 			Players:       playerStates,
 			YourProgress:  yourProgress,
+			ReadyCount:    readyCount,
+			TotalPlayers:  len(r.Players),
 		}
 		
 		player.Client.SendMessage(RacingServerMessage{

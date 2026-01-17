@@ -205,24 +205,52 @@ export default function RacingPage() {
     }
 
     if (status === "waiting") {
+        const isReady = raceState?.yourProgress?.ready || false;
+        const readyCount = raceState?.readyCount || 0;
+        const totalPlayers = raceState?.totalPlayers || 0;
+
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-900 to-blue-950 text-white p-4">
                 <div className="text-center space-y-6">
-                    <h1 className="text-4xl font-bold">⏳ Waiting for Players...</h1>
-                    <p className="text-xl">Race will start soon!</p>
-                    <div className="mt-8">
-                        <div className="animate-pulse text-6xl">🐟</div>
-                    </div>
+                    <h1 className="text-4xl font-bold">⏳ Lobby</h1>
+                    <p className="text-xl">Click Ready when you're set!</p>
+                    
+                    <button
+                        onClick={() => {
+                            if (!isReady && connectionRef.current) {
+                                connectionRef.current.sendReady();
+                            }
+                        }}
+                        disabled={isReady}
+                        className={`text-3xl font-bold px-12 py-6 rounded-lg transition-all transform ${
+                            isReady 
+                                ? "bg-green-600 cursor-not-allowed opacity-75" 
+                                : "bg-blue-600 hover:bg-blue-700 hover:scale-105"
+                        }`}
+                    >
+                        {isReady ? `✅ Ready! ${readyCount}/${totalPlayers}` : `Ready? ${readyCount}/${totalPlayers}`}
+                    </button>
+
                     {raceState && (
-                        <div className="mt-8 p-6 bg-blue-800 rounded-lg">
-                            <p className="text-lg mb-2">Players in Lobby:</p>
-                            <ul className="space-y-2">
+                        <div className="mt-8 p-6 bg-blue-800 rounded-lg max-w-md">
+                            <p className="text-lg mb-4 font-bold">Players in Lobby:</p>
+                            <ul className="space-y-3">
                                 {raceState.players.map((player) => (
-                                    <li key={player.id} className="text-xl">
-                                        {player.name} {player.id === connectionRef.current?.getClientId() && "(You)"}
+                                    <li key={player.id} className="text-xl flex justify-between items-center">
+                                        <span>
+                                            {player.name} {player.id === connectionRef.current?.getClientId() && "(You)"}
+                                        </span>
+                                        <span className="ml-4">
+                                            {player.ready ? "✅" : "⏳"}
+                                        </span>
                                     </li>
                                 ))}
                             </ul>
+                            {readyCount === totalPlayers && totalPlayers > 0 && (
+                                <p className="mt-4 text-green-400 font-bold animate-pulse">
+                                    All players ready! Starting soon...
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>

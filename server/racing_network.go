@@ -39,7 +39,7 @@ func HandleRacingWebSocket(racingWorld *RacingWorld) http.HandlerFunc {
 			return
 		}
 
-		clientID := generateID()
+		clientID := generateClientID()
 		client := NewRacingClient(clientID, conn, racingWorld)
 
 		log.Printf("Racing client connected: %s", clientID)
@@ -148,6 +148,12 @@ func (c *RacingClient) HandleMessage(msg RacingClientMessage) {
 		})
 
 		log.Printf("Player %s joined racing as %s", c.ID, msg.Name)
+
+	case "ready":
+		// Player clicked ready
+		if c.Race != nil {
+			c.Race.HandlePlayerReady(c.ID)
+		}
 
 	case "mouthInput":
 		// Process mouth open/close

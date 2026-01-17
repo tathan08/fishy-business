@@ -30,6 +30,7 @@ export interface RacePlayerState {
     distance: number;
     progress: number; // 0.0 to 1.0
     finished: boolean;
+    ready: boolean;
 }
 
 export interface RaceStatePayload {
@@ -37,6 +38,8 @@ export interface RaceStatePayload {
     timeRemaining?: number;
     players: RacePlayerState[];
     yourProgress: RacePlayerState;
+    readyCount: number;
+    totalPlayers: number;
 }
 
 export interface RaceResult {
@@ -125,6 +128,11 @@ export class RacingConnection {
             this.ws = null;
         }
         this.stopInputLoop();
+    }
+
+    // Send ready signal
+    sendReady(): void {
+        this.send({ type: "ready" });
     }
 
     // Update mouth state (called by face tracking)
