@@ -19,11 +19,6 @@ export default function GamePage() {
     const inputHandlerRef = useRef<InputHandler | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-    // Callback to receive canvas ref from GameCanvas component
-    const setCanvasRef = (canvas: HTMLCanvasElement | null) => {
-        canvasRef.current = canvas;
-    };
-
     useEffect(() => {
         // Get username from session storage
         const storedUsername = sessionStorage.getItem('username');
@@ -63,7 +58,7 @@ export default function GamePage() {
         };
 
         // Connect to server
-        const serverUrl = process.env.NEXT_PUBLIC_WS_SERVER_URL || 'ws://localhost:8080/ws';
+        const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'ws://localhost:8080/ws';
         console.log('Connecting to:', serverUrl);
         connection.connect(serverUrl, storedUsername);
 
@@ -101,16 +96,12 @@ export default function GamePage() {
                 </p>
             </div>
 
-            <div ref={(el) => {
-                if (el) canvasRef.current = el.querySelector('canvas');
-            }}>
-                <GameCanvas
-                    gameState={gameState}
-                    onCanvasReady={setCanvasRef}
-                    worldWidth={worldSize.width}
-                    worldHeight={worldSize.height}
-                />
-            </div>
+            <GameCanvas
+                ref={canvasRef}
+                gameState={gameState}
+                worldWidth={worldSize.width}
+                worldHeight={worldSize.height}
+            />
 
             <div className="mt-4 text-white text-sm text-center">
                 <p>Playing as: <span className="font-bold text-yellow-400">{username}</span></p>
