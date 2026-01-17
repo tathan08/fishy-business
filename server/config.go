@@ -2,8 +2,8 @@ package main
 
 const (
 	// World configuration
-	WorldWidth  = 2000.0
-	WorldHeight = 2000.0
+	WorldWidth  = 4000.0
+	WorldHeight = 4000.0
 
 	// Game loop configuration
 	TickRate      = 30              // Game updates per second
