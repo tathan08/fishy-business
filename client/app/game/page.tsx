@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { GameConnection } from '@/lib/connection';
 import { InputHandler } from '@/lib/input';
+import { FaceTrackingInput } from '@/lib/faceTracking';
 import GameCanvas from '@/components/GameCanvas';
 import LoadingScreen from '@/components/LoadingScreen';
 import type { GameStatePayload, WelcomePayload } from '@/types/game';
@@ -14,9 +15,13 @@ export default function GamePage() {
     const [isConnected, setIsConnected] = useState(false);
     const [gameState, setGameState] = useState<GameStatePayload | null>(null);
     const [worldSize, setWorldSize] = useState({ width: 2000, height: 2000 });
+    const [useFaceTracking, setUseFaceTracking] = useState(false);
+    const [faceTrackingCalibrated, setFaceTrackingCalibrated] = useState(false);
+    const [faceTrackingError, setFaceTrackingError] = useState<string | null>(null);
 
     const connectionRef = useRef<GameConnection | null>(null);
     const inputHandlerRef = useRef<InputHandler | null>(null);
+    const faceTrackingRef = useRef<FaceTrackingInput | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
@@ -69,6 +74,9 @@ export default function GamePage() {
             if (inputHandlerRef.current) {
                 inputHandlerRef.current.destroy();
             }
+            if (faceTrackingRef.current) {
+                faceTrackingRef.current.stop();
+            }
             connection.disconnect();
         };
     }, [router]);
@@ -85,6 +93,69 @@ export default function GamePage() {
         }
     }, [isConnected, canvasRef.current]);
 
+    // Handle face tracking toggle
+    const toggleFaceTracking = async () => {
+        if (!connectionRef.current) return;
+
+        if (!useFaceTracking) {
+            // Enable face tracking
+            try {
+                console.log('Toggling face tracking ON');
+                setFaceTrackingError(null);
+                const faceTracking = new FaceTrackingInput(connectionRef.current);
+                faceTrackingRef.current = faceTracking;
+
+                faceTracking.onCalibrated = () => {
+                    console.log('Face tracking calibrated');
+                    setFaceTrackingCalibrated(true);
+                };
+
+                faceTracking.onError = (error) => {
+                    console.error('Face tracking error callback:', error);
+                    setFaceTrackingError(error);
+                    setUseFaceTracking(false);
+                };
+
+                await faceTracking.start();
+                console.log('Face tracking started successfully');
+                setUseFaceTracking(true);
+
+                // Disable keyboard input
+                if (inputHandlerRef.current) {
+                    inputHandlerRef.current.destroy();
+                    inputHandlerRef.current = null;
+                }
+            } catch (error) {
+                console.error('Face tracking toggle error:', error);
+                setFaceTrackingError(`Failed to start: ${error}`);
+            }
+        } else {
+            // Disable face tracking
+            console.log('Toggling face tracking OFF');
+            if (faceTrackingRef.current) {
+                faceTrackingRef.current.stop();
+                faceTrackingRef.current = null;
+            }
+            setUseFaceTracking(false);
+            setFaceTrackingCalibrated(false);
+
+            // Re-enable keyboard input
+            if (canvasRef.current && connectionRef.current) {
+                inputHandlerRef.current = new InputHandler(
+                    connectionRef.current,
+                    canvasRef.current
+                );
+            }
+        }
+    };
+
+    const recalibrateFaceTracking = () => {
+        if (faceTrackingRef.current) {
+            faceTrackingRef.current.recalibrate();
+            setFaceTrackingCalibrated(false);
+        }
+    };
+
     if (!username || !isConnected || !gameState) {
         return <LoadingScreen />;
     }
@@ -94,7 +165,7 @@ export default function GamePage() {
             <div className="mb-4 text-white text-center">
                 <h1 className="text-2xl font-bold">🐟 Fishy Business</h1>
                 <p className="text-sm">
-                    WASD to swim • Space to boost
+                    {useFaceTracking ? 'Face Tracking Active' : 'WASD to swim • Space to boost'}
                 </p>
             </div>
 
@@ -105,8 +176,46 @@ export default function GamePage() {
                 worldHeight={worldSize.height}
             />
 
-            <div className="mt-4 text-white text-sm text-center">
+            <div className="mt-4 text-white text-sm text-center space-y-2">
                 <p>Playing as: <span className="font-bold text-yellow-400">{username}</span></p>
+                
+                {/* Face Tracking Controls */}
+                <div className="flex gap-2 justify-center items-center">
+                    <button
+                        onClick={() => {
+                            console.log('Button clicked! useFaceTracking:', useFaceTracking);
+                            toggleFaceTracking();
+                        }}
+                        className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                            useFaceTracking
+                                ? 'bg-red-500 hover:bg-red-600'
+                                : 'bg-green-500 hover:bg-green-600'
+                        }`}
+                    >
+                        {useFaceTracking ? '🎥 Disable Face Tracking' : '🎥 Enable Face Tracking'}
+                    </button>
+                    
+                    {useFaceTracking && faceTrackingCalibrated && (
+                        <button
+                            onClick={recalibrateFaceTracking}
+                            className="px-4 py-2 rounded-lg font-semibold bg-yellow-500 hover:bg-yellow-600 transition-all"
+                        >
+                            🎯 Recalibrate
+                        </button>
+                    )}
+                </div>
+
+                {useFaceTracking && !faceTrackingCalibrated && (
+                    <p className="text-yellow-300 animate-pulse">
+                        📹 Look at the camera to calibrate...
+                    </p>
+                )}
+
+                {faceTrackingError && (
+                    <p className="text-red-300">
+                        ⚠️ {faceTrackingError}
+                    </p>
+                )}
             </div>
         </div>
     );
