@@ -178,18 +178,20 @@ func encodePlayerState(buf []byte, player PlayerState) []byte {
 	}
 	buf = append(buf, flags)
 	
-	// Don't send ID/Name/Model - client already knows their own info!
+	// ID length + string
+	buf = appendString(buf, player.ID)
+	// Name length + string
+	buf = appendString(buf, player.Name)
+	// Model length + string
+	buf = appendString(buf, player.Model)
 	
-	// Position (int16 for bandwidth - quantize to 0.1 precision)
-	buf = appendInt16(buf, int16(player.X*10))
-	buf = appendInt16(buf, int16(player.Y*10))
-	// Velocity (int8 for small values)
-	buf = append(buf, int8(player.VelX))
-	buf = append(buf, int8(player.VelY))
-	// Rotation (int16, radians * 1000)
-	buf = appendInt16(buf, int16(player.Rotation*1000))
-	// Size (int8 if < 255)
-	buf = append(buf, byte(player.Size))
+	// Position and velocity (float32 for bandwidth)
+	buf = appendFloat32(buf, float32(player.X))
+	buf = appendFloat32(buf, float32(player.Y))
+	buf = appendFloat32(buf, float32(player.VelX))
+	buf = appendFloat32(buf, float32(player.VelY))
+	buf = appendFloat32(buf, float32(player.Rotation))
+	buf = appendFloat32(buf, float32(player.Size))
 	
 	// Score and seq (uint32)
 	buf = appendUint32(buf, uint32(player.Score))
@@ -207,18 +209,14 @@ func encodePlayerState(buf []byte, player PlayerState) []byte {
 }
 
 func encodeOtherPlayer(buf []byte, player OtherPlayerState) []byte {
-	// Only send ID (shortened) and position data
-	buf = appendString(buf, player.ID) // TODO: use numeric ID
-	// Quantized position (int16)
-	buf = appendInt16(buf, int16(player.X*10))
-	buf = appendInt16(buf, int16(player.Y*10))
-	// Velocity (int8)
-	buf = append(buf, int8(player.VelX))
-	buf = append(buf, int8(player.VelY))
-	// Rotation (int16)
-	buf = appendInt16(buf, int16(player.Rotation*1000))
-	// Size (byte)
-	buf = append(buf, byte(player.Size))
+	// Only send ID (for lookup) and position data - no name/model
+	buf = appendString(buf, player.ID)
+	buf = appendFloat32(buf, float32(player.X))
+	buf = appendFloat32(buf, float32(player.Y))
+	buf = appendFloat32(buf, float32(player.VelX))
+	buf = appendFloat32(buf, float32(player.VelY))
+	buf = appendFloat32(buf, float32(player.Rotation))
+	buf = appendFloat32(buf, float32(player.Size))
 	return buf
 }
 
@@ -262,10 +260,6 @@ func appendString(buf []byte, s string) []byte {
 	length := uint16(len(s))
 	buf = append(buf, byte(length>>8), byte(length))
 	return append(buf, []byte(s)...)
-}
-
-func appendInt16(buf []byte, i int16) []byte {
-	return append(buf, byte(i>>8), byte(i))
 }
 
 func appendFloat32(buf []byte, f float32) []byte {
