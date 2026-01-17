@@ -6,8 +6,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 to-blue-600 flex items-center justify-center">
       <div className="text-center">
-        <h1 className="text-6xl font-bold text-white mb-4 animate-pulse">
-          🐟 Fishy Business
+        <h1 className="text-6xl font-bold text-white mb-4 animate-pulse flex items-center justify-center gap-4">
+          <img src="/fish-models/sacabambaspis.png" alt="Fish" className="h-48 w-[21rem] object-contain" />
+          Fishy Business
         </h1>
         <p className="text-xl text-blue-100 mb-8">
           Eat or be eaten in the ocean

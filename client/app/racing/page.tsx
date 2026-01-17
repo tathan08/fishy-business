@@ -23,6 +23,18 @@ export default function RacingPage() {
     const connectionRef = useRef<RacingConnection | null>(null);
     const faceTrackingRef = useRef<RacingFaceTrackingInput | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    // Preload saca (right-facing) fish image for lane indicator
+    const sacaImgRef = useRef<HTMLImageElement | null>(null);
+
+    useEffect(() => {
+        if (!sacaImgRef.current) {
+            const img = new Image();
+            img.src = "/fish-models/sacabambaspis_right.png";
+            img.onload = () => {
+                sacaImgRef.current = img;
+            };
+        }
+    }, []);
 
     const startRacing = async () => {
         if (!playerName.trim()) {
@@ -155,11 +167,19 @@ export default function RacingPage() {
             ctx.fillStyle = player.finished ? "#4ade80" : "#3b82f6";
             ctx.fillRect(padding, y, progressWidth, trackHeight);
 
-            // Draw fish indicator
+            // Draw fish indicator (use saca image instead of emoji)
             const fishX = padding + progressWidth;
-            ctx.fillStyle = "#fff";
-            ctx.font = "30px Arial";
-            ctx.fillText("🐟", fishX - 15, y + 40);
+            const indicatorW = 120; // 3x larger
+            const indicatorH = 72;  // 3x larger
+            const img = sacaImgRef.current;
+            if (img && img.complete) {
+                ctx.drawImage(img, fishX - indicatorW / 2, y + (trackHeight - indicatorH) / 2, indicatorW, indicatorH);
+            } else {
+                // Fallback to emoji if image not yet loaded
+                ctx.fillStyle = "#fff";
+                ctx.font = "90px Arial"; // 3x larger
+                ctx.fillText("🐟", fishX - 45, y + 90);
+            }
 
             // Draw player name
             ctx.fillStyle = "#fff";
@@ -187,7 +207,10 @@ export default function RacingPage() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-900 to-blue-950 text-white p-4">
                 <div className="text-center space-y-6 max-w-md">
-                    <h1 className="text-5xl font-bold mb-8">🐟 Fish Racing</h1>
+                    <h1 className="text-5xl font-bold mb-8 flex items-center justify-center gap-4">
+                        <img src="/fish-models/sacabambaspis.png" alt="Fish" className="h-36 w-60 object-contain" />
+                        Fish Racing
+                    </h1>
                     <p className="text-xl mb-4">Open and close your mouth to boost forward!</p>
                     
                     <div className="space-y-4">
