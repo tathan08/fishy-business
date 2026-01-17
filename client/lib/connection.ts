@@ -7,6 +7,7 @@ import type {
     ServerMessage,
     WelcomePayload,
     GameStatePayload,
+    FishModel,
 } from "@/types/game";
 
 export class GameConnection {
@@ -27,14 +28,14 @@ export class GameConnection {
     onDisconnect: () => void = () => { };
     onError: (error: Event) => void = () => { };
 
-    connect(serverUrl: string, playerName: string): void {
+    connect(serverUrl: string, playerName: string, fishModel?: FishModel): void {
         console.log("Attempting to connect to:", serverUrl);
         this.ws = new WebSocket(serverUrl);
 
         this.ws.onopen = () => {
             console.log("WebSocket connected successfully");
-            // Step 1: Send join message
-            this.send({ type: "join", name: playerName });
+            // Step 1: Send join message with fish model
+            this.send({ type: "join", name: playerName, model: fishModel });
 
             // Step 2: Start sending input at 20Hz (every 50ms)
             this.startInputLoop();

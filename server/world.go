@@ -304,6 +304,7 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 		Score: player.Score,
 		Alive: player.Alive,
 		Seq:   player.LastSeq,
+		Model: player.Model,
 	}
 
 	if !player.Alive {
@@ -321,11 +322,12 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 		distance := Distance(player.Position, other.Position)
 		if distance <= ViewDistance {
 			others = append(others, OtherPlayerState{
-				ID:   other.ID,
-				Name: other.Name,
-				X:    other.Position.X,
-				Y:    other.Position.Y,
-				Size: other.Size,
+				ID:    other.ID,
+				Name:  other.Name,
+				X:     other.Position.X,
+				Y:     other.Position.Y,
+				Size:  other.Size,
+				Model: other.Model,
 			})
 		}
 	}

@@ -22,6 +22,8 @@ export default function GamePage() {
     useEffect(() => {
         // Get username from session storage
         const storedUsername = sessionStorage.getItem('username');
+        const storedFishModel = sessionStorage.getItem('fishModel') as any;
+        
         if (!storedUsername) {
             // Redirect to join page if no username
             router.push('/join');
@@ -60,7 +62,7 @@ export default function GamePage() {
         // Connect to server
         const serverUrl = process.env.NEXT_PUBLIC_WS_SERVER_URL || 'ws://localhost:8080/ws';
         console.log('Connecting to:', serverUrl);
-        connection.connect(serverUrl, storedUsername);
+        connection.connect(serverUrl, storedUsername, storedFishModel);
 
         // Cleanup on unmount
         return () => {

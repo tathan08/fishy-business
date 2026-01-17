@@ -2,9 +2,12 @@
 // Types matching backend protocol
 // ============================================
 
+export type FishModel = 'swordfish' | 'blobfish' | 'pufferfish' | 'shark' | 'sacabambaspis';
+
 export interface JoinMessage {
     type: "join";
     name: string;
+    model?: FishModel;
 }
 
 export interface InputMessage {
@@ -32,6 +35,7 @@ export interface PlayerState {
     seq?: number;
     killedBy?: string | null;
     respawnIn?: number | null;
+    model?: FishModel;
 }
 
 export interface FoodState {

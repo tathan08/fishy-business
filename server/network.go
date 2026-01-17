@@ -124,7 +124,12 @@ func (c *Client) HandleJoin(msg ClientMessage) {
 		name = "Fish"
 	}
 
-	player := NewPlayer(c.ID, name, c)
+	model := msg.Model
+	if model == "" {
+		model = "swordfish" // Default model
+	}
+
+	player := NewPlayer(c.ID, name, model, c)
 	c.Player = player
 	c.World.AddPlayer(player)
 
