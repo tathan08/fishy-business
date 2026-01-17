@@ -270,7 +270,7 @@ export class GameConnection {
         return offset; // Return total bytes consumed
     }
 
-    private decodeLeaderboard(view: DataView): void {
+    private decodeLeaderboard(view: DataView): number {
         let offset = 1;
         const count = view.getUint8(offset);
         offset += 1;
