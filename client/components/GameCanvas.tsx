@@ -17,43 +17,37 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
     function GameCanvas({ gameState, worldWidth, worldHeight }, ref) {
         const canvasRef = useRef<HTMLCanvasElement>(null);
         const animationFrameRef = useRef<number | undefined>(undefined);
-        const backgroundImageRef = useRef<HTMLImageElement | null>(null);
         const previousStateRef = useRef<GameStatePayload | null>(null);
         const lastUpdateTimeRef = useRef<number>(Date.now());
         const lastFrameTimeRef = useRef<number>(0);
         const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
         const offscreenCtxRef = useRef<CanvasRenderingContext2D | null>(null);
 
-        // Preload background image and create offscreen canvas
+        // Create offscreen canvas with gradient background (much faster than image)
         useEffect(() => {
-            const img = new Image();
-            img.src = '/background.jpg';
-            img.onload = () => {
-                backgroundImageRef.current = img;
-                
-                // Create offscreen canvas for background
-                const offscreenCanvas = document.createElement('canvas');
-                offscreenCanvas.width = worldWidth;
-                offscreenCanvas.height = worldHeight;
-                const offscreenCtx = offscreenCanvas.getContext('2d');
-                
-                if (offscreenCtx) {
-                    // Pre-render background with pattern
-                    const pattern = offscreenCtx.createPattern(img, 'repeat');
-                    if (pattern) {
-                        offscreenCtx.fillStyle = pattern;
-                        offscreenCtx.fillRect(0, 0, worldWidth, worldHeight);
-                    }
-                    
-                    // Draw world border on offscreen canvas
-                    offscreenCtx.strokeStyle = '#ff6b6b';
-                    offscreenCtx.lineWidth = 20;
-                    offscreenCtx.strokeRect(0, 0, worldWidth, worldHeight);
-                    
-                    offscreenCanvasRef.current = offscreenCanvas;
-                    offscreenCtxRef.current = offscreenCtx;
-                }
-            };
+            // Create offscreen canvas for background
+            const offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.width = worldWidth;
+            offscreenCanvas.height = worldHeight;
+            const offscreenCtx = offscreenCanvas.getContext('2d');
+
+            if (offscreenCtx) {
+                // Draw ocean gradient background (top to bottom)
+                const gradient = offscreenCtx.createLinearGradient(0, 0, 0, worldHeight);
+                gradient.addColorStop(0, '#0a2463');    // Deep blue top
+                gradient.addColorStop(0.5, '#1e3a5f');  // Mid blue
+                gradient.addColorStop(1, '#0c2340');    // Dark blue bottom
+                offscreenCtx.fillStyle = gradient;
+                offscreenCtx.fillRect(0, 0, worldWidth, worldHeight);
+
+                // Draw world border on offscreen canvas
+                offscreenCtx.strokeStyle = '#ff6b6b';
+                offscreenCtx.lineWidth = 20;
+                offscreenCtx.strokeRect(0, 0, worldWidth, worldHeight);
+
+                offscreenCanvasRef.current = offscreenCanvas;
+                offscreenCtxRef.current = offscreenCtx;
+            }
         }, [worldWidth, worldHeight]);
 
         useEffect(() => {
@@ -64,7 +58,7 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
             if (!ctx) return;
 
             // Store current state and update time
-            if (previousStateRef.current === null || 
+            if (previousStateRef.current === null ||
                 previousStateRef.current.you.seq !== gameState.you.seq) {
                 previousStateRef.current = gameState;
                 lastUpdateTimeRef.current = Date.now();
@@ -74,21 +68,22 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                 // Frame rate limiting (60 FPS)
                 const targetFPS = 60;
                 const frameInterval = 1000 / targetFPS;
-                
+
                 if (currentTime - lastFrameTimeRef.current < frameInterval) {
                     animationFrameRef.current = requestAnimationFrame(render);
                     return;
                 }
                 lastFrameTimeRef.current = currentTime;
-                
-                // Clear canvas
-                ctx.fillStyle = '#1a1a2e';
+
+                // Motion blur effect - semi-transparent fade instead of hard clear
+                // This creates smooth trails that mask lag
+                ctx.fillStyle = 'rgba(26, 26, 46, 0.3)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 // Interpolate between updates for smoother rendering
                 const now = Date.now();
                 const timeSinceUpdate = (now - lastUpdateTimeRef.current) / 1000;
-                
+
                 // Cap interpolation to expected update interval (67ms for 15Hz)
                 const maxInterpolationTime = 0.067; // 67ms
                 const cappedTime = Math.min(timeSinceUpdate, maxInterpolationTime);
@@ -121,18 +116,14 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                 if (offscreenCanvasRef.current) {
                     ctx.drawImage(offscreenCanvasRef.current, 0, 0);
                 } else {
-                    // Fallback: Draw background if offscreen canvas not ready
-                    if (backgroundImageRef.current) {
-                        const pattern = ctx.createPattern(backgroundImageRef.current, 'repeat');
-                        if (pattern) {
-                            ctx.fillStyle = pattern;
-                            ctx.fillRect(0, 0, worldWidth, worldHeight);
-                        }
-                    } else {
-                        ctx.fillStyle = '#0c4a6e';
-                        ctx.fillRect(0, 0, worldWidth, worldHeight);
-                    }
-                    
+                    // Fallback: Draw gradient if offscreen canvas not ready
+                    const gradient = ctx.createLinearGradient(0, 0, 0, worldHeight);
+                    gradient.addColorStop(0, '#0a2463');
+                    gradient.addColorStop(0.5, '#1e3a5f');
+                    gradient.addColorStop(1, '#0c2340');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, worldWidth, worldHeight);
+
                     // Draw world border
                     ctx.strokeStyle = '#ff6b6b';
                     ctx.lineWidth = 20;
@@ -145,7 +136,7 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                 const viewportRight = player.x + canvas.width / 2 + viewportMargin;
                 const viewportTop = player.y - canvas.height / 2 - viewportMargin;
                 const viewportBottom = player.y + canvas.height / 2 + viewportMargin;
-                
+
                 gameState.food.forEach((food: FoodState) => {
                     // Only render food within viewport
                     if (food.x >= viewportLeft && food.x <= viewportRight &&
@@ -197,7 +188,7 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                 // Request next frame
                 animationFrameRef.current = requestAnimationFrame(render);
             };
-            
+
             render(performance.now());
 
             return () => {

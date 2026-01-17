@@ -113,13 +113,12 @@ export function drawFish(
         // Draw the image
         const imgSize = size * 2.5; // Make image slightly larger than circle would be
 
-        // Apply color tint for player vs others
+        // Apply transparency for player vs others
         if (isPlayer) {
             ctx.globalAlpha = 1;
-            // Draw with yellow tint for player
-            ctx.filter = 'brightness(1.2) sepia(0.3) hue-rotate(-10deg)';
+            // No filter - better performance!
         } else {
-            ctx.globalAlpha = 0.9;
+            ctx.globalAlpha = 0.85;
         }
 
         ctx.drawImage(
