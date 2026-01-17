@@ -36,6 +36,27 @@ export class FaceTrackingInput {
     public currentDirX = 0;
     public currentDirY = 0;
     
+    // Boost state (mouth detection)
+    private isBoosting = false;
+    private boostMeter = 100; // 0-100%
+    private readonly BOOST_DRAIN_RATE = 20;   // % per second when boosting
+    private readonly BOOST_RECHARGE_RATE = 15; // % per second when not boosting
+    private lastBoostUpdate = Date.now();
+    private readonly MOUTH_OPEN_THRESHOLD = 0.15; // Threshold for mouth aspect ratio
+    
+    // Smoothing for mouth detection to prevent flickering
+    private mouthOpenSmoothBuffer: boolean[] = [];
+    private readonly MOUTH_SMOOTH_FRAMES = 3; // Number of frames to smooth over
+    
+    // Track previous state to only send changes
+    private lastSentDirX = 0;
+    private lastSentDirY = 0;
+    private lastSentBoosting = false;
+    
+    // Current boost status (for UI feedback)
+    public currentIsBoosting = false;
+    public currentBoostMeter = 100;
+    
     onCalibrated: () => void = () => {};
     onError: (error: string) => void = () => {};
 
@@ -141,6 +162,42 @@ export class FaceTrackingInput {
                 const nose = landmarks[1];
                 const noseX = nose.x;
                 const noseY = nose.y;
+                
+                // Detect mouth opening for boost
+                // Upper lip: indices 13, 14
+                // Lower lip: indices 312, 402
+                // Mouth corners: indices 61, 291
+                const upperLipTop = landmarks[13];
+                const lowerLipBottom = landmarks[14];
+                const mouthLeft = landmarks[61];
+                const mouthRight = landmarks[291];
+                
+                // Calculate mouth aspect ratio (MAR)
+                const verticalDist = Math.sqrt(
+                    Math.pow(lowerLipBottom.x - upperLipTop.x, 2) +
+                    Math.pow(lowerLipBottom.y - upperLipTop.y, 2)
+                );
+                const horizontalDist = Math.sqrt(
+                    Math.pow(mouthRight.x - mouthLeft.x, 2) +
+                    Math.pow(mouthRight.y - mouthLeft.y, 2)
+                );
+                const mouthAspectRatio = verticalDist / (horizontalDist + 0.001); // Avoid division by zero
+                
+                // Detect if mouth is open
+                const mouthIsOpen = mouthAspectRatio > this.MOUTH_OPEN_THRESHOLD;
+                
+                // Add to smoothing buffer
+                this.mouthOpenSmoothBuffer.push(mouthIsOpen);
+                if (this.mouthOpenSmoothBuffer.length > this.MOUTH_SMOOTH_FRAMES) {
+                    this.mouthOpenSmoothBuffer.shift();
+                }
+                
+                // Consider mouth open if majority of recent frames detected it as open
+                const openCount = this.mouthOpenSmoothBuffer.filter(x => x).length;
+                const smoothedMouthOpen = openCount >= Math.ceil(this.MOUTH_SMOOTH_FRAMES / 2);
+                
+                // Update boost state based on smoothed mouth opening
+                this.updateBoostState(smoothedMouthOpen);
 
                 if (!this.calibrated) {
                     // Calibrate center position
@@ -176,8 +233,29 @@ export class FaceTrackingInput {
                     this.currentDirX = finalDirX;
                     this.currentDirY = finalDirY;
 
-                    // Send input to connection
-                    this.connection.setInput(finalDirX, finalDirY, false);
+                    // Only send input if direction or boost state changed significantly
+                    const dirChanged = Math.abs(finalDirX - this.lastSentDirX) > 0.01 || 
+                                      Math.abs(finalDirY - this.lastSentDirY) > 0.01;
+                    const boostChanged = this.isBoosting !== this.lastSentBoosting;
+                    
+                    if (dirChanged || boostChanged) {
+                        // Send input to connection with boost status
+                        this.connection.setInput(finalDirX, finalDirY, this.isBoosting);
+                        
+                        // Update last sent state
+                        this.lastSentDirX = finalDirX;
+                        this.lastSentDirY = finalDirY;
+                        this.lastSentBoosting = this.isBoosting;
+                    }
+                }
+            } else {
+                // No face detected - treat mouth as closed but keep recharging boost
+                this.updateBoostState(false);
+                
+                // Send boost state change if needed
+                if (this.calibrated && this.isBoosting !== this.lastSentBoosting) {
+                    this.connection.setInput(this.lastSentDirX, this.lastSentDirY, this.isBoosting);
+                    this.lastSentBoosting = this.isBoosting;
                 }
             }
         }
@@ -190,6 +268,45 @@ export class FaceTrackingInput {
 
     private startTracking(): void {
         this.processFrame();
+    }
+
+    private updateBoostState(mouthIsOpen: boolean): void {
+        const now = Date.now();
+        const deltaTime = (now - this.lastBoostUpdate) / 1000; // seconds
+        this.lastBoostUpdate = now;
+
+        // Determine if we should be boosting: mouth open AND meter has charge
+        if (mouthIsOpen && this.boostMeter > 0) {
+            this.isBoosting = true;
+            // Drain meter when boosting
+            this.boostMeter -= this.BOOST_DRAIN_RATE * deltaTime;
+            if (this.boostMeter <= 0) {
+                this.boostMeter = 0;
+                this.isBoosting = false; // Auto-stop when empty
+            }
+        } else {
+            // Not boosting - either mouth closed or meter empty
+            this.isBoosting = false;
+            // Recharge meter when not boosting
+            if (this.boostMeter < 100) {
+                this.boostMeter += this.BOOST_RECHARGE_RATE * deltaTime;
+                if (this.boostMeter > 100) {
+                    this.boostMeter = 100;
+                }
+            }
+        }
+        
+        // Update public properties for UI feedback
+        this.currentIsBoosting = this.isBoosting;
+        this.currentBoostMeter = this.boostMeter;
+    }
+    
+    public getBoostMeter(): number {
+        return this.boostMeter;
+    }
+    
+    public getIsBoosting(): boolean {
+        return this.isBoosting;
     }
 
     recalibrate(): void {

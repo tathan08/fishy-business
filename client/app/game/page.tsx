@@ -256,7 +256,7 @@ export default function GamePage() {
             <div className="mb-4 text-white text-center">
                 <h1 className="text-2xl font-bold">🐟 Fishy Business</h1>
                 <p className="text-sm">
-                    {useFaceTracking ? 'Face Tracking Active' : 'WASD to swim • Space to boost'}
+                    {useFaceTracking ? 'Face Tracking Active • Open mouth to boost' : 'WASD to swim • Space to boost'}
                 </p>
             </div>
 
@@ -266,6 +266,7 @@ export default function GamePage() {
                 worldWidth={worldSize.width}
                 worldHeight={worldSize.height}
                 inputHandler={inputHandlerRef.current}
+                faceTrackingInput={faceTrackingRef.current}
             />
 
             <div className="mt-4 text-white text-sm text-center">

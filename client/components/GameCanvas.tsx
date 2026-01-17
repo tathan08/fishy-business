@@ -3,6 +3,7 @@
 import { useEffect, useRef, forwardRef, useState } from 'react';
 import type { GameStatePayload, FoodState } from '@/types/game';
 import type { InputHandler } from '@/lib/input';
+import type { FaceTrackingInput } from '@/lib/faceTracking';
 import { drawFish } from './rendering/drawFish';
 import { drawMinimap } from './rendering/drawMinimap';
 import { drawLeaderboard } from './rendering/drawLeaderboard';
@@ -15,6 +16,7 @@ interface Props {
     worldWidth: number;
     worldHeight: number;
     inputHandler: InputHandler | null;
+    faceTrackingInput: FaceTrackingInput | null;
 }
 
 // Random death messages for entertainment
@@ -55,7 +57,7 @@ const KILL_MESSAGES = [
 ];
 
 const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
-    function GameCanvas({ gameState, worldWidth, worldHeight, inputHandler }, ref) {
+    function GameCanvas({ gameState, worldWidth, worldHeight, inputHandler, faceTrackingInput }, ref) {
         const canvasRef = useRef<HTMLCanvasElement>(null);
         const animationFrameRef = useRef<number | undefined>(undefined);
         const previousStateRef = useRef<GameStatePayload | null>(null);
@@ -289,11 +291,13 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                     drawFish(ctx, player, true);
 
                     // Draw stamina bar below player's fish (in world coordinates)
-                    if (inputHandler) {
+                    // Support both keyboard input and face tracking input
+                    const boostSource = inputHandler || faceTrackingInput;
+                    if (boostSource) {
                         drawBoostMeter(
                             ctx,
-                            inputHandler.getBoostMeter(),
-                            inputHandler.getIsBoosting(),
+                            boostSource.getBoostMeter(),
+                            boostSource.getIsBoosting(),
                             player.x,
                             player.y,
                             player.size
