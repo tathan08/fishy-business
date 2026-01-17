@@ -245,14 +245,24 @@ func (w *World) DetectCollisions() {
 			body1 := p1.GetBodyHitbox()
 			body2 := p2.GetBodyHitbox()
 
-			collides, separation := OrientedRectCollision(body1, body2)
-			if collides {
-				// Apply bounce force
-				// Push both players apart
-				force := BounceStrength
-				p1.Velocity = p1.Velocity.Add(separation.Mul(-force * 0.016)) // dt approximation
-				p2.Velocity = p2.Velocity.Add(separation.Mul(force * 0.016))
+		collides, separation := OrientedRectCollision(body1, body2)
+		if collides {
+			// Skip bouncing if either fish can eat the other
+			// This allows eating at similar sizes without bounce interference
+			canP1EatP2 := p1.Size >= p2.Size*SizeMultiplier
+			canP2EatP1 := p2.Size >= p1.Size*SizeMultiplier
+			
+			if canP1EatP2 || canP2EatP1 {
+				// Skip bounce - let eating happen instead
+				continue
 			}
+			
+			// Apply bounce force
+			// Push both players apart
+			force := BounceStrength
+			p1.Velocity = p1.Velocity.Add(separation.Mul(-force * 0.016)) // dt approximation
+			p2.Velocity = p2.Velocity.Add(separation.Mul(force * 0.016))
+		}
 		}
 	}
 }

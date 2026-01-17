@@ -28,7 +28,7 @@ const (
 
 	// Gameplay
 	RespawnDelay   = 3.0 // seconds
-	SizeMultiplier = 1.1 // need to be this much bigger to eat another fish
+	SizeMultiplier = 1.0 // need to be this much bigger to eat another fish (1.0 = same size allowed)
 	VelocityLerp   = 0.1 // smoothing factor for velocity changes
 
 	// Network
@@ -59,12 +59,12 @@ var FishHitboxConfigs = map[string]HitboxConfig{
 	},
 	"blobfish": {
 		BodyWidthRatio:   1.3,  // Compact and blobby
-		BodyHeightRatio:  1.3,  // Taller but flattened
+		BodyHeightRatio:  0.8,  // Taller but flattened
 		MouthSizeRatio:   0.35, // Large droopy mouth
 		MouthOffsetRatio: 0.6,  // Close to center
 	},
 	"pufferfish": {
-		BodyWidthRatio:   1.2, // Nearly circular when puffed
+		BodyWidthRatio:   1.1, // Nearly circular when puffed
 		BodyHeightRatio:  1.2, // Equal width and height
 		MouthSizeRatio:   0.4, // Round mouth
 		MouthOffsetRatio: 0.6, // Close to center (spherical)

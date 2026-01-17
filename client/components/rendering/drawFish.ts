@@ -14,20 +14,20 @@ const HITBOX_CONFIGS = {
     },
     blobfish: {
         bodyWidthRatio: 1.3,
-        bodyHeightRatio: 1.3,
+        bodyHeightRatio: 0.8,
         mouthSizeRatio: 0.35,
         mouthOffsetRatio: 0.6,
     },
     pufferfish: {
-        bodyWidthRatio: 1.2,
+        bodyWidthRatio: 1.1,
         bodyHeightRatio: 1.2,
-        mouthSizeRatio: 0.4,
-        mouthOffsetRatio: 0.6,
+        mouthSizeRatio: 0.625,
+        mouthOffsetRatio: 0.25,
     },
     shark: {
         bodyWidthRatio: 1.8,
         bodyHeightRatio: 0.9,
-        mouthSizeRatio: 0.35,
+        mouthSizeRatio: 0.5,
         mouthOffsetRatio: 0.9,
     },
     sacabambaspis: {
