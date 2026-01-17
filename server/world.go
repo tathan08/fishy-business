@@ -118,17 +118,21 @@ func (w *World) UpdatePhysics(dt float64) {
 		// Update position
 		player.Position = player.Position.Add(player.Velocity.Mul(dt))
 
-		// Wrap around world bounds
+		// Clamp to world bounds (hard border)
 		if player.Position.X < 0 {
-			player.Position.X = WorldWidth
-		} else if player.Position.X > WorldWidth {
 			player.Position.X = 0
+			player.Velocity.X = 0 // Stop horizontal movement
+		} else if player.Position.X > WorldWidth {
+			player.Position.X = WorldWidth
+			player.Velocity.X = 0
 		}
 
 		if player.Position.Y < 0 {
-			player.Position.Y = WorldHeight
-		} else if player.Position.Y > WorldHeight {
 			player.Position.Y = 0
+			player.Velocity.Y = 0 // Stop vertical movement
+		} else if player.Position.Y > WorldHeight {
+			player.Position.Y = WorldHeight
+			player.Velocity.Y = 0
 		}
 
 		// Deduct size if boosting
@@ -293,6 +297,7 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 	// Player's own state
 	you := PlayerState{
 		ID:    player.ID,
+		Name:  player.Name,
 		X:     player.Position.X,
 		Y:     player.Position.Y,
 		Size:  player.Size,

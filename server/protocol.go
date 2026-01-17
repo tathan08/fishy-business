@@ -34,6 +34,7 @@ type GameStatePayload struct {
 // PlayerState represents the player's own state
 type PlayerState struct {
 	ID         string   `json:"id"`
+	Name       string   `json:"name"`
 	X          float64  `json:"x"`
 	Y          float64  `json:"y"`
 	Size       float64  `json:"size"`
