@@ -87,7 +87,8 @@ func (c *Client) WritePump() {
 				return
 			}
 
-			if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
+			// Send as binary message
+			if err := c.Conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
 				return
 			}
 
@@ -177,14 +178,34 @@ func (c *Client) HandleInput(msg ClientMessage) {
 
 // SendMessage sends a message to the client
 func (c *Client) SendMessage(msg ServerMessage) {
-	data, err := json.Marshal(msg)
+	// Try binary encoding first
+	data, err := EncodeBinaryMessage(msg)
+	if err != nil {
+		log.Printf("Error encoding binary message: %v", err)
+		return
+	}
+	
+	// If binary encoding succeeded, send as binary
+	if data != nil {
+		select {
+		case c.Send <- data:
+		default:
+			// Channel full, client too slow
+			log.Printf("Client %s send channel full, closing connection", c.ID)
+			c.World.Disconnect(c)
+		}
+		return
+	}
+	
+	// Fallback to JSON for unsupported message types
+	jsonData, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("Error marshaling message: %v", err)
 		return
 	}
 
 	select {
-	case c.Send <- data:
+	case c.Send <- jsonData:
 	default:
 		// Channel full, client too slow
 		log.Printf("Client %s send channel full, closing connection", c.ID)

@@ -7,7 +7,7 @@ const (
 
 	// Game loop configuration
 	TickRate      = 60              // Game updates per second
-	BroadcastRate = 20              // State broadcasts per second
+	BroadcastRate = 10              // State broadcasts per second
 	TickInterval  = 1000 / TickRate // milliseconds
 
 	// Player configuration
@@ -20,22 +20,22 @@ const (
 	ViewDistance      = 800.0 // how far players can see
 
 	// Food configuration
-	MaxFoodCount     = 500
-	FoodSpawnRate    = 10 // food items spawned per second
-	MinFoodSize      = 3.0
-	MaxFoodSize      = 10.0
-	FoodValue        = 2.0 // size gained when eating food
+	MaxFoodCount  = 500
+	FoodSpawnRate = 10 // food items spawned per second
+	MinFoodSize   = 3.0
+	MaxFoodSize   = 10.0
+	FoodValue     = 2.0 // size gained when eating food
 
 	// Gameplay
-	RespawnDelay    = 3.0 // seconds
-	SizeMultiplier  = 1.1 // need to be this much bigger to eat another fish
-	VelocityLerp    = 0.1 // smoothing factor for velocity changes
+	RespawnDelay   = 3.0 // seconds
+	SizeMultiplier = 1.1 // need to be this much bigger to eat another fish
+	VelocityLerp   = 0.1 // smoothing factor for velocity changes
 
 	// Network
-	InputQueueSize     = 10000
-	WriteChannelSize   = 256
-	PingInterval       = 2000 // milliseconds
-	MaxPlayerNameLen   = 20
+	InputQueueSize   = 10000
+	WriteChannelSize = 256
+	PingInterval     = 2000 // milliseconds
+	MaxPlayerNameLen = 20
 
 	// Collision
 	BounceStrength = 150.0 // Push force when bodies collide
@@ -64,10 +64,10 @@ var FishHitboxConfigs = map[string]HitboxConfig{
 		MouthOffsetRatio: 1.0,  // Mouth at front but not far
 	},
 	"pufferfish": {
-		BodyWidthRatio:   1.2,  // Nearly circular when puffed
-		BodyHeightRatio:  1.2,  // Equal width and height
-		MouthSizeRatio:   0.3,  // Small round mouth
-		MouthOffsetRatio: 0.6,  // Close to center (spherical)
+		BodyWidthRatio:   1.2, // Nearly circular when puffed
+		BodyHeightRatio:  1.2, // Equal width and height
+		MouthSizeRatio:   0.3, // Small round mouth
+		MouthOffsetRatio: 0.6, // Close to center (spherical)
 	},
 	"shark": {
 		BodyWidthRatio:   3.0,  // Streamlined predator
@@ -76,10 +76,10 @@ var FishHitboxConfigs = map[string]HitboxConfig{
 		MouthOffsetRatio: 1.4,  // Forward positioned
 	},
 	"sacabambaspis": {
-		BodyWidthRatio:   2.5,  // Elongated oval prehistoric fish
-		BodyHeightRatio:  1.0,  // Moderate height
-		MouthSizeRatio:   0.3,  // Standard mouth
-		MouthOffsetRatio: 1.2,  // Front positioned
+		BodyWidthRatio:   2.5, // Elongated oval prehistoric fish
+		BodyHeightRatio:  1.0, // Moderate height
+		MouthSizeRatio:   0.3, // Standard mouth
+		MouthOffsetRatio: 1.2, // Front positioned
 	},
 }
 
