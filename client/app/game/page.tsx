@@ -19,6 +19,11 @@ export default function GamePage() {
     const inputHandlerRef = useRef<InputHandler | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+    // Callback to receive canvas ref from GameCanvas component
+    const setCanvasRef = (canvas: HTMLCanvasElement | null) => {
+        canvasRef.current = canvas;
+    };
+
     useEffect(() => {
         // Get username from session storage
         const storedUsername = sessionStorage.getItem('username');
@@ -74,12 +79,14 @@ export default function GamePage() {
     // Set up input handler once canvas is ready and connected
     useEffect(() => {
         if (isConnected && canvasRef.current && connectionRef.current && !inputHandlerRef.current) {
+            console.log('Setting up input handler...');
             inputHandlerRef.current = new InputHandler(
                 connectionRef.current,
                 canvasRef.current
             );
+            console.log('Input handler ready!');
         }
-    }, [isConnected]);
+    }, [isConnected, canvasRef.current]);
 
     if (!username || !isConnected || !gameState) {
         return <LoadingScreen />;
@@ -99,6 +106,7 @@ export default function GamePage() {
             }}>
                 <GameCanvas
                     gameState={gameState}
+                    onCanvasReady={setCanvasRef}
                     worldWidth={worldSize.width}
                     worldHeight={worldSize.height}
                 />

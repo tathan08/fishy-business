@@ -20,6 +20,7 @@ export class InputHandler {
     constructor(connection: GameConnection, canvas: HTMLCanvasElement) {
         this.connection = connection;
         this.canvas = canvas;
+        console.log('InputHandler initialized with canvas:', canvas);
         this.setupListeners();
         this.startInputLoop();
     }
@@ -28,10 +29,22 @@ export class InputHandler {
         // Keyboard movement (WASD)
         const handleKeyDown = (e: KeyboardEvent) => {
             const key = e.key.toLowerCase();
-            if (key === 'w') this.keys.w = true;
-            if (key === 'a') this.keys.a = true;
-            if (key === 's') this.keys.s = true;
-            if (key === 'd') this.keys.d = true;
+            if (key === 'w') {
+                this.keys.w = true;
+                console.log('W pressed');
+            }
+            if (key === 'a') {
+                this.keys.a = true;
+                console.log('A pressed');
+            }
+            if (key === 's') {
+                this.keys.s = true;
+                console.log('S pressed');
+            }
+            if (key === 'd') {
+                this.keys.d = true;
+                console.log('D pressed');
+            }
 
             // Spacebar for boost
             if (e.code === 'Space') {

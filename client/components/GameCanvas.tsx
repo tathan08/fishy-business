@@ -7,12 +7,20 @@ interface Props {
     gameState: GameStatePayload | null;
     worldWidth: number;
     worldHeight: number;
+    onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
 }
 
-export default function GameCanvas({ gameState, worldWidth, worldHeight }: Props) {
+export default function GameCanvas({ gameState, worldWidth, worldHeight, onCanvasReady }: Props) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationFrameRef = useRef<number | undefined>(undefined);
     const backgroundImageRef = useRef<HTMLImageElement | null>(null);
+
+    // Notify parent when canvas is ready
+    useEffect(() => {
+        if (canvasRef.current && onCanvasReady) {
+            onCanvasReady(canvasRef.current);
+        }
+    }, [onCanvasReady]);
 
     // Preload background image
     useEffect(() => {
