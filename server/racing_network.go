@@ -87,7 +87,7 @@ func (c *RacingClient) ReadPump() {
 
 // WritePump sends messages to the racing WebSocket
 func (c *RacingClient) WritePump() {
-	ticker := time.NewTicker(54 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
 	defer func() {
 		ticker.Stop()
 		c.Conn.Close()
@@ -104,22 +104,9 @@ func (c *RacingClient) WritePump() {
 
 			log.Printf("WritePump sending message to client %s: %s", c.ID, string(message))
 
-			w, err := c.Conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				log.Printf("Error getting next writer for client %s: %v", c.ID, err)
-				return
-			}
-			w.Write(message)
-
-			// Add queued messages to current websocket message
-			n := len(c.Send)
-			for i := 0; i < n; i++ {
-				w.Write([]byte{'\n'})
-				w.Write(<-c.Send)
-			}
-
-			if err := w.Close(); err != nil {
-				log.Printf("Error closing writer for client %s: %v", c.ID, err)
+			// Send each message as a separate WebSocket frame
+			if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				log.Printf("Error writing message for client %s: %v", c.ID, err)
 				return
 			}
 
@@ -164,15 +151,24 @@ func (c *RacingClient) HandleMessage(msg RacingClientMessage) {
 
 	case "ready":
 		// Player clicked ready
+		log.Printf("Ready message received from client %s, race is nil: %v", c.ID, c.Race == nil)
 		if c.Race != nil {
+			log.Printf("Calling HandlePlayerReady for client %s", c.ID)
 			c.Race.HandlePlayerReady(c.ID)
+		} else {
+			log.Printf("ERROR: Ready message but client %s has no race!", c.ID)
 		}
 
-	case "mouthInput":
-		// Process mouth open/close
-		if c.Race != nil {
-			c.Race.HandleMouthInput(c.ID, msg.MouthOpen)
+	case "stateUpdate":
+		// Handle fish state update from client
+		log.Printf("Received state update from client %s, race is nil: %v", c.ID, c.Race == nil)
+		if c.Race == nil {
+			log.Printf("ERROR: Client %s has no race assigned!", c.ID)
+			break
 		}
+		log.Printf("Calling HandleFishStateUpdate with fishState: %+v, race ID: %s", msg.FishState, c.Race.ID)
+		c.Race.HandleFishStateUpdate(c.ID, msg.FishState)
+		log.Printf("HandleFishStateUpdate completed for client %s", c.ID)
 
 	case "ping":
 		// Respond with pong

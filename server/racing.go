@@ -10,12 +10,11 @@ import (
 
 // Racing-specific constants
 const (
-	RaceDistance         = 1000.0 // Distance to complete the race
-	RaceMaxPlayers       = 8      // Maximum players per race
-	RaceLobbyWaitTime    = 10     // Seconds to wait for more players before starting
-	RaceCountdownTime    = 3      // Seconds of countdown before race starts
-	BaseSpeed            = 50.0   // Base forward speed
-	MouthBoostMultiplier = 2.5    // Speed multiplier when mouth is open
+	CyclesPerRace     = 50      // 50 cycles × 2% = 100% to finish
+	CycleProgress     = 0.02    // Each cycle is 2% progress
+	RaceMaxPlayers    = 8       // Maximum players per race
+	RaceLobbyWaitTime = 10      // Seconds to wait for more players before starting
+	RaceCountdownTime = 3       // Seconds of countdown before race starts
 )
 
 // RaceState represents the current state of a race
@@ -48,19 +47,15 @@ type Race struct {
 
 // RacingPlayer represents a player in a race
 type RacingPlayer struct {
-	ID                string
-	Name              string
-	Model             string
-	Client            *RacingClient
-	Distance          float64   // Distance traveled (0 to RaceDistance)
-	Speed             float64   // Current speed
-	MouthOpenCount    int       // Number of times mouth was opened
-	MouthCloseCount   int       // Number of times mouth was closed
-	LastMouthState    bool      // Last known mouth state (true = open)
-	MouthActionTimes  []float64 // Timestamps of mouth actions for calculating speed
-	FinishTime        float64   // Time taken to finish (in seconds)
-	Finished          bool
-	Ready             bool      // Player has clicked ready
+	ID            string
+	Name          string
+	Model         string
+	Client        *RacingClient
+	MouthCycles   int       // Number of complete mouth cycles (open → close)
+	Progress      float64   // Progress from 0.0 to 1.0 (0% to 100%)
+	FinishTime    float64   // Time taken to finish (in seconds)
+	Finished      bool
+	Ready         bool      // Player has clicked ready
 }
 
 // RaceResult stores the final result for a player
@@ -75,12 +70,19 @@ type RaceResult struct {
 
 // RacingClientMessage represents incoming messages from racing clients
 type RacingClientMessage struct {
-	Type       string `json:"type"`
-	Name       string `json:"name,omitempty"`
-	Model      string `json:"model,omitempty"`
-	MouthOpen  bool   `json:"mouthOpen,omitempty"`
-	Ready      bool   `json:"ready,omitempty"`
-	Seq        uint32 `json:"seq,omitempty"`
+	Type       string    `json:"type"`
+	Name       string    `json:"name,omitempty"`
+	Model      string    `json:"model,omitempty"`
+	MouthOpen  bool      `json:"mouthOpen,omitempty"`
+	MouthCycle int       `json:"mouthCycle,omitempty"`
+	Ready      bool      `json:"ready,omitempty"`
+	Seq        uint32    `json:"seq,omitempty"`
+	FishState  FishState `json:"fishState,omitempty"`
+}
+
+// FishState represents the current state of a fish in racing
+type FishState struct {
+	MouthCycles int `json:"mouthCycles"`
 }
 
 // RacingServerMessage represents outgoing messages to racing clients
@@ -113,7 +115,6 @@ type RacePlayerState struct {
 	ID       string  `json:"id"`
 	Name     string  `json:"name"`
 	Model    string  `json:"model"`
-	Distance float64 `json:"distance"`
 	Progress float64 `json:"progress"` // 0.0 to 1.0
 	Finished bool    `json:"finished"`
 	Ready    bool    `json:"ready"`
@@ -157,14 +158,10 @@ func (rw *RacingWorld) JoinRace(client *RacingClient, playerName, model string) 
 	
 	// Create player
 	player := &RacingPlayer{
-		ID:             client.ID,
-		Name:           playerName,
-		Model:          model,
-		Client:         client,
-		Distance:       0,
-		Speed:          0,
-		LastMouthState: false,
-		MouthActionTimes: make([]float64, 0),
+		ID:     client.ID,
+		Name:   playerName,
+		Model:  model,
+		Client: client,
 	}
 	
 	race.Players[client.ID] = player
@@ -197,15 +194,16 @@ func (r *Race) StartLobbyCountdown() {
 // HandlePlayerReady marks a player as ready and starts countdown if all ready
 func (r *Race) HandlePlayerReady(playerID string) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	
 	// Only handle ready in lobby state
 	if r.State != RaceStateLobby {
+		r.mu.Unlock()
 		return
 	}
 	
 	player, exists := r.Players[playerID]
 	if !exists {
+		r.mu.Unlock()
 		return
 	}
 	
@@ -228,8 +226,10 @@ func (r *Race) HandlePlayerReady(playerID string) {
 	// Start race if all players are ready (minimum 1 player)
 	if allReady && len(r.Players) > 0 {
 		log.Printf("All players ready! Starting race %s", r.ID)
+		r.mu.Unlock() // Unlock before starting countdown to avoid deadlock
 		r.StartRaceCountdown()
 	} else {
+		r.mu.Unlock() // Unlock before broadcasting
 		// Broadcast updated state to show ready status
 		r.BroadcastState()
 	}
@@ -242,8 +242,22 @@ func (r *Race) StartRaceCountdown() {
 	
 	log.Printf("Race %s starting countdown with %d players", r.ID, len(r.Players))
 	
+	// Broadcast countdown state to all players
+	r.BroadcastState()
+	
 	go func() {
-		time.Sleep(time.Duration(RaceCountdownTime) * time.Second)
+		// Broadcast updates every second during countdown
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		
+		for i := 0; i < RaceCountdownTime; i++ {
+			<-ticker.C
+			// Broadcast updated countdown
+			if r.State == RaceStateCountdown {
+				r.BroadcastState()
+			}
+		}
+		
 		r.StartRace()
 	}()
 }
@@ -257,60 +271,53 @@ func (r *Race) StartRace() {
 	
 	log.Printf("Race %s started!", r.ID)
 	
+	// Broadcast racing state to all players
+	r.BroadcastState()
+	
 	// Start race update loop
 	go r.RaceLoop()
 }
 
-// RaceLoop updates race state at 60Hz
+// RaceLoop updates race state and broadcasts at regular intervals
 func (r *Race) RaceLoop() {
-	ticker := time.NewTicker(time.Millisecond * 16) // ~60 FPS
+	ticker := time.NewTicker(100 * time.Millisecond) // Broadcast every 100ms
 	defer ticker.Stop()
 	
 	for r.State == RaceStateRacing {
 		<-ticker.C
-		r.UpdateRace(0.016) // 16ms = 0.016s
+		r.BroadcastState()
+		
+		// Check if race should end
+		r.mu.Lock()
+		allFinished := true
+		for _, player := range r.Players {
+			if !player.Finished {
+				allFinished = false
+				break
+			}
+		}
+		if allFinished && len(r.Players) > 0 {
+			r.State = RaceStateFinished
+			r.mu.Unlock()
+			r.BroadcastResults()
+			break
+		}
+		r.mu.Unlock()
 	}
 }
 
-// UpdateRace updates all player positions
+// UpdateRace is deprecated - use RaceLoop instead
 func (r *Race) UpdateRace(dt float64) {
+	// This function is no longer used
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	
+	// Check if all players finished (progress is now updated by HandleFishStateUpdate)
 	allFinished := true
-	
 	for _, player := range r.Players {
 		if !player.Finished {
-			// Move player forward based on speed
-			player.Distance += player.Speed * dt
-			
-			// Check if player finished
-			if player.Distance >= RaceDistance {
-				player.Distance = RaceDistance
-				player.Finished = true
-				player.FinishTime = time.Since(r.StartTime).Seconds()
-				
-				// Calculate mouth actions per minute
-				if player.FinishTime > 0 {
-					totalActions := float64(player.MouthOpenCount + player.MouthCloseCount)
-					player.FinishTime = math.Max(player.FinishTime, 0.001) // Prevent division by zero
-					mapm := (totalActions / player.FinishTime) * 60.0
-					
-					result := RaceResult{
-						PlayerID:              player.ID,
-						Name:                  player.Name,
-						Model:                 player.Model,
-						FinishTime:            player.FinishTime,
-						MouthActionsPerMinute: mapm,
-						Rank:                  len(r.FinishedPlayers) + 1,
-					}
-					r.FinishedPlayers = append(r.FinishedPlayers, result)
-					
-					log.Printf("Player %s finished! Time: %.2fs, MAPM: %.2f", player.Name, player.FinishTime, mapm)
-				}
-			} else {
-				allFinished = false
-			}
+			allFinished = false
+			break
 		}
 	}
 	
@@ -346,59 +353,58 @@ func (r *Race) EndRace() {
 // BroadcastState sends current race state to all players
 func (r *Race) BroadcastState() {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
 	
-	for _, player := range r.Players {
+	// Collect data while holding the read lock
+	raceState := r.StateString()
+	countdownStart := r.CountdownStart
+	state := r.State
+	players := make([]*RacingPlayer, 0, len(r.Players))
+	playersData := make([]RacePlayerState, 0, len(r.Players))
+	
+	for _, p := range r.Players {
+		players = append(players, p)
+		playersData = append(playersData, RacePlayerState{
+			ID:       p.ID,
+			Name:     p.Name,
+			Model:    p.Model,
+			Progress: p.Progress,
+			Finished: p.Finished,
+			Ready:    p.Ready,
+		})
+	}
+	
+	r.mu.RUnlock()
+	
+	// Send messages outside the lock
+	for i, player := range players {
 		if player.Client == nil {
 			continue
 		}
 		
-		// Build player states
-		playerStates := make([]RacePlayerState, 0, len(r.Players))
-		var yourProgress RacePlayerState
-		
-		for _, p := range r.Players {
-			state := RacePlayerState{
-				ID:       p.ID,
-				Name:     p.Name,
-				Model:    p.Model,
-				Distance: p.Distance,
-				Progress: p.Distance / RaceDistance,
-				Finished: p.Finished,
-				Ready:    p.Ready,
-			}
-			playerStates = append(playerStates, state)
-			
-			if p.ID == player.ID {
-				yourProgress = state
-			}
+		// Calculate time remaining for countdown
+		var timeRemaining float64
+		if state == RaceStateCountdown {
+			elapsed := time.Since(countdownStart).Seconds()
+			timeRemaining = math.Max(0, float64(RaceCountdownTime)-elapsed)
+		} else if state == RaceStateLobby {
+			timeRemaining = float64(RaceLobbyWaitTime)
 		}
 		
 		// Count ready players
 		readyCount := 0
-		for _, p := range r.Players {
+		for _, p := range playersData {
 			if p.Ready {
 				readyCount++
 			}
 		}
 		
-		// Calculate time remaining for countdown
-		var timeRemaining float64
-		if r.State == RaceStateCountdown {
-			elapsed := time.Since(r.CountdownStart).Seconds()
-			timeRemaining = math.Max(0, float64(RaceCountdownTime)-elapsed)
-		} else if r.State == RaceStateLobby {
-			// This would need more complex logic to track lobby start time
-			timeRemaining = float64(RaceLobbyWaitTime)
-		}
-		
 		payload := RaceStatePayload{
-			RaceState:     r.StateString(),
+			RaceState:     raceState,
 			TimeRemaining: timeRemaining,
-			Players:       playerStates,
-			YourProgress:  yourProgress,
+			Players:       playersData,
+			YourProgress:  playersData[i],
 			ReadyCount:    readyCount,
-			TotalPlayers:  len(r.Players),
+			TotalPlayers:  len(playersData),
 		}
 		
 		player.Client.SendMessage(RacingServerMessage{
@@ -427,38 +433,6 @@ func (r *Race) BroadcastResults() {
 	}
 }
 
-// HandleMouthInput processes mouth open/close events
-func (r *Race) HandleMouthInput(playerID string, mouthOpen bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	
-	player, exists := r.Players[playerID]
-	if !exists || r.State != RaceStateRacing {
-		return
-	}
-	
-	// Detect mouth state change
-	if mouthOpen != player.LastMouthState {
-		currentTime := time.Since(r.StartTime).Seconds()
-		player.MouthActionTimes = append(player.MouthActionTimes, currentTime)
-		
-		if mouthOpen {
-			player.MouthOpenCount++
-		} else {
-			player.MouthCloseCount++
-		}
-		
-		player.LastMouthState = mouthOpen
-	}
-	
-	// Update speed based on mouth state
-	if mouthOpen {
-		player.Speed = BaseSpeed * MouthBoostMultiplier
-	} else {
-		player.Speed = BaseSpeed
-	}
-}
-
 // StateString returns the race state as a string
 func (r *Race) StateString() string {
 	switch r.State {
@@ -475,7 +449,73 @@ func (r *Race) StateString() string {
 	}
 }
 
-// DisconnectPlayer removes a player from the race
+// HandleFishStateUpdate processes a fish state update from a client
+func (r *Race) HandleFishStateUpdate(playerID string, state FishState) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("PANIC in HandleFishStateUpdate: %v", err)
+		}
+	}()
+
+	log.Printf("HandleFishStateUpdate START for player %s", playerID)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	log.Printf("HandleFishStateUpdate: acquired lock")
+
+	player, ok := r.Players[playerID]
+	if !ok {
+		log.Printf("Player %s not found in race %s", playerID, r.ID)
+		return
+	}
+
+	log.Printf("HandleFishStateUpdate: found player, current cycles=%d, new cycles=%d", player.MouthCycles, state.MouthCycles)
+	prevCycles := player.MouthCycles
+	
+	// Update mouth cycles from client
+	player.MouthCycles = state.MouthCycles
+	log.Printf("Received state update for %s: cycles=%d (was %d), race state: %s", playerID, state.MouthCycles, prevCycles, r.StateString())
+
+	// Calculate progress: each cycle is 2%
+	player.Progress = float64(player.MouthCycles) * CycleProgress
+
+	// Cap progress at 100%
+	if player.Progress > 1.0 {
+		player.Progress = 1.0
+	}
+
+	log.Printf("HandleFishStateUpdate: calculated progress=%.2f%%", player.Progress*100)
+
+	// Check if player just finished
+	if player.Progress >= 1.0 && !player.Finished {
+		player.Finished = true
+		player.FinishTime = time.Since(r.StartTime).Seconds()
+		log.Printf("Player %s finished! Time: %.2fs, Cycles: %d", playerID, player.FinishTime, player.MouthCycles)
+
+		// Add to results
+		r.FinishedPlayers = append(r.FinishedPlayers, RaceResult{
+			PlayerID:   playerID,
+			Name:       player.Name,
+			Model:      player.Model,
+			FinishTime: player.FinishTime,
+			MouthActionsPerMinute: (float64(player.MouthCycles*2) / player.FinishTime) * 60.0,
+		})
+
+		// Check if all players finished
+		allFinished := true
+		for _, p := range r.Players {
+			if !p.Finished {
+				allFinished = false
+				break
+			}
+		}
+
+		if allFinished {
+			r.State = RaceStateFinished
+		}
+	}
+
+	log.Printf("HandleFishStateUpdate: releasing lock")
+}// DisconnectPlayer removes a player from the race
 func (r *Race) DisconnectPlayer(playerID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -13,20 +13,25 @@ export class RacingFaceTrackingInput {
     private stream: MediaStream | null = null;
     private animationFrameId: number | null = null;
     private isActive = false;
+    private stateUpdateInterval: number | null = null;
 
     // MediaPipe variables
     private faceLandmarker: FaceLandmarker | null = null;
     private lastVideoTime = -1;
 
     // Mouth detection
-    private readonly MOUTH_OPEN_THRESHOLD = 0.15;
+    private readonly MOUTH_OPEN_THRESHOLD = 0.45;
     private mouthOpenSmoothBuffer: boolean[] = [];
     private readonly MOUTH_SMOOTH_FRAMES = 3;
+    private lastMouthState: boolean = false;
+    private mouthCycles: number = 0;
 
     // Callbacks
     onCalibrated: () => void = () => {};
     onError: (error: string) => void = () => {};
     onMouthStateChange: (isOpen: boolean) => void = () => {};
+    onDebugData: (data: { verticalDist: number; horizontalDist: number; aspectRatio: number; threshold: number }) => void = () => {};
+    onCycleCount: (count: number) => void = () => {};
 
     constructor(connection: RacingConnection) {
         this.connection = connection;
@@ -35,6 +40,11 @@ export class RacingFaceTrackingInput {
     async start(): Promise<void> {
         try {
             console.log('Racing face tracking: Starting...');
+
+            // Reset tracking state
+            this.mouthCycles = 0;
+            this.lastMouthState = false;
+            this.mouthOpenSmoothBuffer = [];
 
             // Create video element
             this.videoElement = document.createElement('video');
@@ -72,6 +82,13 @@ export class RacingFaceTrackingInput {
 
             console.log('Racing face tracking: Active!');
             this.onCalibrated();
+
+            // Start sending state updates to server every 1 second (after everything is set up)
+            console.log('Racing: Setting up state update interval');
+            this.stateUpdateInterval = window.setInterval(() => {
+                console.log("Interval tick: sending state update with mouthCycles =", this.mouthCycles);
+                this.connection.sendStateUpdate(this.mouthCycles);
+            }, 1000);
 
         } catch (error) {
             console.error('Racing face tracking error:', error);
@@ -165,8 +182,15 @@ export class RacingFaceTrackingInput {
         const openCount = this.mouthOpenSmoothBuffer.filter(x => x).length;
         const smoothedMouthOpen = openCount > this.MOUTH_SMOOTH_FRAMES / 2;
 
-        // Update connection
-        this.connection.setMouthOpen(smoothedMouthOpen);
+        // Detect complete cycle: open → close
+        if (this.lastMouthState && !smoothedMouthOpen && this.mouthCycles < 50) {
+            // Mouth just closed after being open - one complete cycle
+            this.mouthCycles++;
+            this.connection.sendMouthCycle();
+            this.onCycleCount(this.mouthCycles);
+        }
+        
+        this.lastMouthState = smoothedMouthOpen;
 
         // Call callback
         this.onMouthStateChange(smoothedMouthOpen);
@@ -199,7 +223,17 @@ export class RacingFaceTrackingInput {
         );
 
         // Aspect ratio = height / width
-        return horizontalDist > 0 ? verticalDist / horizontalDist : 0;
+        const aspectRatio = horizontalDist > 0 ? verticalDist / horizontalDist : 0;
+        
+        // Send debug data
+        this.onDebugData({
+            verticalDist,
+            horizontalDist,
+            aspectRatio,
+            threshold: this.MOUTH_OPEN_THRESHOLD
+        });
+        
+        return aspectRatio;
     }
 
     stop(): void {
@@ -210,6 +244,11 @@ export class RacingFaceTrackingInput {
         if (this.animationFrameId !== null) {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
+        }
+
+        if (this.stateUpdateInterval !== null) {
+            clearInterval(this.stateUpdateInterval);
+            this.stateUpdateInterval = null;
         }
 
         if (this.stream) {

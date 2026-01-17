@@ -12,6 +12,13 @@ export default function RacingPage() {
     const [mouthOpen, setMouthOpen] = useState(false);
     const [playerName, setPlayerName] = useState("");
     const [showNameInput, setShowNameInput] = useState(true);
+    const [debugData, setDebugData] = useState<{
+        verticalDist: number;
+        horizontalDist: number;
+        aspectRatio: number;
+        threshold: number;
+    } | null>(null);
+    const [cycleCount, setCycleCount] = useState(0);
 
     const connectionRef = useRef<RacingConnection | null>(null);
     const faceTrackingRef = useRef<RacingFaceTrackingInput | null>(null);
@@ -79,6 +86,14 @@ export default function RacingPage() {
                 setMouthOpen(isOpen);
             };
 
+            faceTracking.onDebugData = (data) => {
+                setDebugData(data);
+            };
+
+            faceTracking.onCycleCount = (count) => {
+                setCycleCount(count);
+            };
+
             faceTracking.onError = (error: string) => {
                 console.error("Face tracking error:", error);
             };
@@ -115,6 +130,8 @@ export default function RacingPage() {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
+
+        console.log("Drawing race, yourProgress:", raceState.yourProgress?.progress, "cycles:", cycleCount);
 
         // Clear canvas
         ctx.fillStyle = "#1a1a2e";
@@ -214,6 +231,8 @@ export default function RacingPage() {
         const readyCount = raceState?.readyCount || 0;
         const totalPlayers = raceState?.totalPlayers || 0;
 
+        console.log("Lobby state:", { isReady, readyCount, totalPlayers, yourProgress: raceState?.yourProgress });
+
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-900 to-blue-950 text-white p-4">
                 <div className="text-center space-y-6">
@@ -222,7 +241,9 @@ export default function RacingPage() {
                     
                     <button
                         onClick={() => {
+                            console.log("Ready button clicked, isReady:", isReady);
                             if (!isReady && connectionRef.current) {
+                                console.log("Sending ready signal");
                                 connectionRef.current.sendReady();
                             }
                         }}
@@ -293,6 +314,37 @@ export default function RacingPage() {
                         }`}>
                             {mouthOpen ? "🚀 BOOSTING!" : "😐 Open Mouth to Boost"}
                         </div>
+                        
+                        {/* Debug data display */}
+                        {debugData && (
+                            <div className="mt-4 p-4 bg-black bg-opacity-50 rounded-lg inline-block text-left font-mono text-sm">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                    <span className="text-gray-400">Vertical Distance:</span>
+                                    <span className="text-white font-bold">{debugData.verticalDist.toFixed(4)}</span>
+                                    
+                                    <span className="text-gray-400">Horizontal Distance:</span>
+                                    <span className="text-white font-bold">{debugData.horizontalDist.toFixed(4)}</span>
+                                    
+                                    <span className="text-gray-400">Aspect Ratio:</span>
+                                    <span className={`font-bold ${debugData.aspectRatio > debugData.threshold ? 'text-green-400' : 'text-red-400'}`}>
+                                        {debugData.aspectRatio.toFixed(4)}
+                                    </span>
+                                    
+                                    <span className="text-gray-400">Threshold:</span>
+                                    <span className="text-yellow-400 font-bold">{debugData.threshold.toFixed(4)}</span>
+                                    
+                                    <span className="text-gray-400">Mouth State:</span>
+                                    <span className={`font-bold ${mouthOpen ? 'text-green-400' : 'text-red-400'}`}>
+                                        {mouthOpen ? "OPEN" : "CLOSED"}
+                                    </span>
+                                    
+                                    <span className="text-gray-400">Cycles:</span>
+                                    <span className="text-cyan-400 font-bold text-xl">
+                                        {cycleCount} / 50
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Race canvas */}

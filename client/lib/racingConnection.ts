@@ -7,7 +7,11 @@ export interface RacingClientMessage {
     name?: string;
     model?: string;
     mouthOpen?: boolean;
+    mouthCycle?: number;
     seq?: number;
+    fishState?: {
+        mouthCycles: number;
+    };
 }
 
 export interface RacingServerMessage {
@@ -141,6 +145,25 @@ export class RacingConnection {
     // Update mouth state (called by face tracking)
     setMouthOpen(isOpen: boolean): void {
         this.currentMouthOpen = isOpen;
+    }
+
+    // Send mouth cycle increment
+    sendMouthCycle(): void {
+        this.send({
+            type: "mouthCycle",
+            mouthCycle: 1,
+        });
+    }
+
+    // Send fish state update with cycle count
+    sendStateUpdate(mouthCycles: number): void {
+        console.log("sendStateUpdate called with mouthCycles:", mouthCycles);
+        this.send({
+            type: "stateUpdate",
+            fishState: {
+                mouthCycles: mouthCycles,
+            },
+        });
     }
 
     private startInputLoop(): void {
