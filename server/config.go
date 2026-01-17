@@ -55,7 +55,7 @@ var FishHitboxConfigs = map[string]HitboxConfig{
 		BodyWidthRatio:   3.5,  // Very elongated with long sword
 		BodyHeightRatio:  0.8,  // Sleek and thin
 		MouthSizeRatio:   0.25, // Smaller pointed mouth
-		MouthOffsetRatio: 1.8,  // Far forward due to sword
+		MouthOffsetRatio: 1.0,  // Same as shark
 	},
 	"blobfish": {
 		BodyWidthRatio:   2.2,  // Wide and blobby

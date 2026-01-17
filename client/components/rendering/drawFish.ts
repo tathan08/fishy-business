@@ -4,6 +4,50 @@ import type { PlayerState, FishModel } from '@/types/game';
 const imageCache: Record<string, HTMLImageElement | null> = {};
 const imageLoadAttempts: Record<string, boolean> = {};
 
+// Hitbox configurations matching server (for debugging visualization)
+const HITBOX_CONFIGS = {
+    swordfish: {
+        bodyWidthRatio: 2.0,
+        bodyHeightRatio: 0.8,
+        mouthSizeRatio: 0.25,
+        mouthOffsetRatio: 1.0,
+    },
+    blobfish: {
+        bodyWidthRatio: 1.3,
+        bodyHeightRatio: 1.3,
+        mouthSizeRatio: 0.35,
+        mouthOffsetRatio: 0.6,
+    },
+    pufferfish: {
+        bodyWidthRatio: 1.2,
+        bodyHeightRatio: 1.2,
+        mouthSizeRatio: 0.4,
+        mouthOffsetRatio: 0.6,
+    },
+    shark: {
+        bodyWidthRatio: 1.8,
+        bodyHeightRatio: 0.9,
+        mouthSizeRatio: 0.35,
+        mouthOffsetRatio: 0.9,
+    },
+    sacabambaspis: {
+        bodyWidthRatio: 2.0,
+        bodyHeightRatio: 1.0,
+        mouthSizeRatio: 0.4,
+        mouthOffsetRatio: 0.9,
+    },
+};
+
+const DEFAULT_HITBOX = {
+    bodyWidthRatio: 2.5,
+    bodyHeightRatio: 1.0,
+    mouthSizeRatio: 0.3,
+    mouthOffsetRatio: 1.2,
+};
+
+// Debug flag - set to true to see hitboxes
+const DEBUG_HITBOXES = false;
+
 /**
  * Preload a fish model image
  */
@@ -90,6 +134,9 @@ export function drawFish(
         drawFishShape(ctx, size, isPlayer, model);
     }
 
+    // Draw debug hitboxes
+    drawDebugHitboxes(ctx, fish, angle);
+
     ctx.restore();
 
     // Draw username above fish (not rotated)
@@ -133,4 +180,38 @@ function drawFishShape(
     ctx.beginPath();
     ctx.arc(size * 0.5, -size * 0.2, 3, 0, Math.PI * 2);
     ctx.fill();
+}
+
+/**
+ * Draw debug hitboxes for the fish
+ */
+function drawDebugHitboxes(
+    ctx: CanvasRenderingContext2D,
+    fish: PlayerState,
+    angle: number
+) {
+    if (!DEBUG_HITBOXES) return;
+
+    const model = (fish.model || 'swordfish') as FishModel;
+    const config = HITBOX_CONFIGS[model] || DEFAULT_HITBOX;
+    const size = Math.min(fish.size, 200); // Cap at MaxPlayerSize
+
+    // Body hitbox (oriented rectangle) - drawn in rotated context
+    const bodyWidth = size * config.bodyWidthRatio;
+    const bodyHeight = size * config.bodyHeightRatio;
+
+    ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-bodyWidth / 2, -bodyHeight / 2, bodyWidth, bodyHeight);
+
+    // Mouth hitbox (circle) - drawn in rotated context
+    const mouthRadius = size * config.mouthSizeRatio;
+    const mouthOffset = size * config.mouthOffsetRatio;
+
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    // Negate offset because fish images are flipped 180°
+    ctx.arc(-mouthOffset, 0, mouthRadius, 0, Math.PI * 2);
+    ctx.stroke();
 }

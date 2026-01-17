@@ -201,12 +201,20 @@ func (w *World) DetectCollisions() {
 				}
 
 			case *FoodEntity:
-				// Check if player's mouth eats food (food is circular)
+				// Check if player's mouth OR body collects food (food is circular)
 				foodCircle := Circle{
 					Center: e.Position,
 					Radius: e.Size,
 				}
-				if CircleCircleCollision(playerMouth, foodCircle) {
+				
+				// Check mouth hitbox
+				mouthCollision := CircleCircleCollision(playerMouth, foodCircle)
+				
+				// Check body hitbox
+				playerBody := player.GetBodyHitbox()
+				bodyCollision := CircleOrientedRectCollision(foodCircle, playerBody)
+				
+				if mouthCollision || bodyCollision {
 					w.EatFood(player, e.Food)
 				}
 			}
