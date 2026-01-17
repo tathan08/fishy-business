@@ -6,8 +6,14 @@ import { GameConnection } from "./connection";
 
 export class InputHandler {
     private connection: GameConnection;
-    private boost = false;
+    private isBoosting = false;
+    private boostMeter = 100; // 0-100%
     private canvas: HTMLCanvasElement;
+
+    // Boost configuration
+    private readonly BOOST_DRAIN_RATE = 20;   // % per second when boosting
+    private readonly BOOST_RECHARGE_RATE = 15; // % per second when not boosting
+    private lastBoostUpdate = Date.now();
 
     // Track which keys are pressed
     private keys = {
@@ -34,10 +40,12 @@ export class InputHandler {
             if (key === 's') this.keys.s = true;
             if (key === 'd') this.keys.d = true;
 
-            // Spacebar for boost
+            // Spacebar toggles boost ON (only if meter > 0)
             if (e.code === 'Space') {
-                e.preventDefault();
-                this.boost = true;
+                e.preventDefault(); // Always prevent scroll
+                if (!e.repeat && this.boostMeter > 0) {
+                    this.isBoosting = true;
+                }
             }
         };
 
@@ -48,9 +56,12 @@ export class InputHandler {
             if (key === 's') this.keys.s = false;
             if (key === 'd') this.keys.d = false;
 
+            // Spacebar toggles boost OFF
             if (e.code === 'Space') {
-                e.preventDefault();
-                this.boost = false;
+                e.preventDefault(); // Always prevent scroll
+                if (!e.repeat) {
+                    this.isBoosting = false;
+                }
             }
         };
 
@@ -81,7 +92,31 @@ export class InputHandler {
         }
     }
 
+    private updateBoostMeter(): void {
+        const now = Date.now();
+        const deltaTime = (now - this.lastBoostUpdate) / 1000; // seconds
+        this.lastBoostUpdate = now;
+
+        if (this.isBoosting && this.boostMeter > 0) {
+            // Drain meter when boosting
+            this.boostMeter -= this.BOOST_DRAIN_RATE * deltaTime;
+            if (this.boostMeter <= 0) {
+                this.boostMeter = 0;
+                this.isBoosting = false; // Auto-stop when empty
+            }
+        } else if (!this.isBoosting && this.boostMeter < 100) {
+            // Recharge meter when not boosting
+            this.boostMeter += this.BOOST_RECHARGE_RATE * deltaTime;
+            if (this.boostMeter > 100) {
+                this.boostMeter = 100;
+            }
+        }
+    }
+
     private updateDirection(): void {
+        // Update boost meter
+        this.updateBoostMeter();
+
         let dirX = 0;
         let dirY = 0;
 
@@ -98,7 +133,16 @@ export class InputHandler {
             dirY /= len;
         }
 
-        this.connection.setInput(dirX, dirY, this.boost);
+        this.connection.setInput(dirX, dirY, this.isBoosting);
+    }
+
+    // Public methods to get boost state
+    public getBoostMeter(): number {
+        return this.boostMeter;
+    }
+
+    public getIsBoosting(): boolean {
+        return this.isBoosting;
     }
 
     private cleanup: (() => void) | null = null;

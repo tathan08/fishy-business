@@ -265,6 +265,7 @@ export default function GamePage() {
                 gameState={gameState}
                 worldWidth={worldSize.width}
                 worldHeight={worldSize.height}
+                inputHandler={inputHandlerRef.current}
             />
 
             <div className="mt-4 text-white text-sm text-center">
