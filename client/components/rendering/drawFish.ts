@@ -19,11 +19,11 @@ function loadFishImage(model: FishModel): HTMLImageElement | null {
     imageLoadAttempts[model] = true;
     const img = new Image();
     img.src = `/fish-models/${model}.png`;
-    
+
     img.onload = () => {
         imageCache[model] = img;
     };
-    
+
     img.onerror = () => {
         imageCache[model] = null;
     };
@@ -41,21 +41,23 @@ export function drawFish(
 ) {
     const model = (fish.model || 'swordfish') as FishModel;
     const size = fish.size;
-    
-    // Calculate rotation angle from velocity
+
+    // Use rotation from backend if available, otherwise calculate from velocity
     let angle = 0;
-    if (fish.velX !== undefined && fish.velY !== undefined) {
+    if (fish.rotation !== undefined) {
+        angle = fish.rotation;
+    } else if (fish.velX !== undefined && fish.velY !== undefined) {
         const speed = Math.sqrt(fish.velX * fish.velX + fish.velY * fish.velY);
-        if (speed > 0.1) { // Only rotate if moving
+        if (speed > 0.1) {
             angle = Math.atan2(fish.velY, fish.velX);
         }
     }
-    
+
     // Try to load/get the image
     const img = loadFishImage(model);
-    
+
     ctx.save();
-    
+
     // Translate to fish position and rotate
     ctx.translate(fish.x, fish.y);
     ctx.rotate(angle);
@@ -64,7 +66,7 @@ export function drawFish(
     if (img && img.complete && img.naturalHeight !== 0) {
         // Draw the image
         const imgSize = size * 2.5; // Make image slightly larger than circle would be
-        
+
         // Apply color tint for player vs others
         if (isPlayer) {
             ctx.globalAlpha = 1;
@@ -73,7 +75,7 @@ export function drawFish(
         } else {
             ctx.globalAlpha = 0.9;
         }
-        
+
         ctx.drawImage(
             img,
             -imgSize / 2,
@@ -111,11 +113,11 @@ function drawFishShape(
     // Simple fish shape as fallback (drawn at origin, will be rotated by parent)
     ctx.fillStyle = baseColor;
     ctx.beginPath();
-    
+
     // Basic fish body
     ctx.ellipse(0, 0, size * 1.2, size * 0.8, 0, 0, Math.PI * 2);
     ctx.fill();
-    
+
     // Tail
     ctx.beginPath();
     ctx.moveTo(-size * 1.2, 0);
@@ -123,7 +125,7 @@ function drawFishShape(
     ctx.lineTo(-size * 1.8, size * 0.6);
     ctx.closePath();
     ctx.fill();
-    
+
     // Eye
     ctx.fillStyle = '#000000';
     ctx.beginPath();

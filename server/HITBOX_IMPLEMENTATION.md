@@ -155,9 +155,14 @@ Fish rotation is automatically calculated based on velocity:
 
 ```go
 if player.Velocity.Length() > 0.1 {
-    player.Rotation = math.Atan2(player.Velocity.Y, player.Velocity.X)
+    player.Rotation = math.Atan2(player.Velocity.Y, player.Velocity.X) + math.Pi
 }
 ```
+
+**Note**: We add `math.Pi` (180°) because the fish images have their heads pointing LEFT (at 180°), not RIGHT (at 0°). This ensures:
+- The head leads when moving, not the tail
+- The mouth hitbox is positioned at the head
+- Visual appearance matches the direction of movement
 
 This rotation is:
 - Sent to clients in the game state

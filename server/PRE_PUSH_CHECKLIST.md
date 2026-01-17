@@ -7,16 +7,23 @@
 - **Fix**: Removed duplicate from `math.go`, kept the one in `utils.go`
 - **Status**: Compiles successfully
 
-### 2. ✅ Implemented Per-Fish-Model Hitbox System
+### 2. ✅ Fixed Fish Rotation Direction
+- **Issue**: Fish images have heads pointing LEFT, but code assumed RIGHT
+- **Symptom**: Tail was leading instead of head, mouth hitbox at wrong end
+- **Fix**: Added `+ math.Pi` (180°) to rotation calculation in `world.go`
+- **Result**: Head now leads, mouth hitbox at head, correct movement direction
+
+### 3. ✅ Implemented Per-Fish-Model Hitbox System
 - **What**: Each fish species now has customized hitbox dimensions
 - **Why**: Match hitboxes to visual fish shapes for fair gameplay
 - **Files Modified**:
   - `server/config.go` - Added `HitboxConfig` struct and `FishHitboxConfigs` map
   - `server/entities.go` - Added `GetHitboxConfig()` method, updated hitbox methods
+  - `server/world.go` - Fixed rotation calculation for left-facing fish images
   - `server/HITBOX_IMPLEMENTATION.md` - Updated documentation
   - `server/FISH_HITBOX_COMPARISON.md` - NEW: Visual comparison guide
 
-### 3. ✅ Fish-Specific Configurations
+### 4. ✅ Fish-Specific Configurations
 
 | Fish | Body Ratio | Mouth Size | Mouth Reach | Design |
 |------|------------|------------|-------------|--------|
@@ -87,15 +94,16 @@ fly deploy
 ## Git Commit Message Suggestion
 
 ```
-feat: Add per-fish-model hitbox system
+feat: Add per-fish-model hitbox system and fix rotation
 
-- Implement customized hitboxes for each fish species (swordfish, shark, blobfish, pufferfish, sacabambaspis)
+- Implement customized hitboxes for each fish species
+- Fix fish rotation: add 180° offset for left-facing fish images
 - Fix duplicate Clamp function declaration
 - Add HitboxConfig struct with model-specific dimensions
 - Swordfish: 3.5:0.8 ratio (elongated with long sword)
 - Pufferfish: 1.2:1.2 ratio (spherical)
-- Each fish has trade-offs for balanced gameplay
-- Performance impact: negligible (<0.1% CPU)
+- Each fish has balanced trade-offs for gameplay
+- Fixes: Head now leads movement, mouth hitbox at correct position
 ```
 
 ## Ready to Push? ✅

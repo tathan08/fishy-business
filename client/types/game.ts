@@ -31,6 +31,7 @@ export interface PlayerState {
     y: number;
     velX?: number;
     velY?: number;
+    rotation?: number;
     size: number;
     score?: number;
     alive?: boolean;
