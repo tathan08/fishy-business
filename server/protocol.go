@@ -22,6 +22,8 @@ type ServerMessage struct {
 // WelcomePayload is sent after a player joins
 type WelcomePayload struct {
 	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Model       string  `json:"model"`
 	WorldWidth  float64 `json:"worldWidth"`
 	WorldHeight float64 `json:"worldHeight"`
 }
@@ -115,20 +117,23 @@ func EncodeBinaryMessage(msg ServerMessage) ([]byte, error) {
 }
 
 func encodeWelcome(payload WelcomePayload) ([]byte, error) {
-	buf := make([]byte, 1+len(payload.ID)+2+8+8)
-	buf[0] = MsgTypeWelcome
+	capacity := 1 + 2 + len(payload.ID) + 2 + len(payload.Name) + 2 + len(payload.Model) + 16
+	buf := make([]byte, 0, capacity)
 	
-	// ID string (length + bytes)
-	idLen := uint16(len(payload.ID))
-	buf[1] = byte(idLen >> 8)
-	buf[2] = byte(idLen)
-	copy(buf[3:], payload.ID)
+	buf = append(buf, MsgTypeWelcome)
 	
-	offset := 3 + len(payload.ID)
+	// ID string
+	buf = appendString(buf, payload.ID)
+	// Name string
+	buf = appendString(buf, payload.Name)
+	// Model string
+	buf = appendString(buf, payload.Model)
 	
 	// World dimensions (float64)
-	putFloat64(buf[offset:], payload.WorldWidth)
-	putFloat64(buf[offset+8:], payload.WorldHeight)
+	oldLen := len(buf)
+	buf = append(buf, make([]byte, 16)...)
+	putFloat64(buf[oldLen:], payload.WorldWidth)
+	putFloat64(buf[oldLen+8:], payload.WorldHeight)
 	
 	return buf, nil
 }

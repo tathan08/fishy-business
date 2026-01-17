@@ -194,11 +194,13 @@ func (c *Client) HandleJoin(msg ClientMessage) {
 	c.Player = player
 	c.World.AddPlayer(player)
 
-	// Send welcome message
+	// Send welcome message with player info
 	c.SendMessage(ServerMessage{
 		Type: "welcome",
 		Payload: WelcomePayload{
 			ID:          c.ID,
+			Name:        name,
+			Model:       model,
 			WorldWidth:  WorldWidth,
 			WorldHeight: WorldHeight,
 		},

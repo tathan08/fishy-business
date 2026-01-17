@@ -240,10 +240,16 @@ export class GameConnection {
         let offset = 1;
         
         // ID string
-        const idLen = view.getUint16(offset);
-        offset += 2;
-        const id = new TextDecoder().decode(new Uint8Array(view.buffer, view.byteOffset + offset, idLen));
-        offset += idLen;
+        const { str: id, newOffset: idOffset } = this.readString(view, offset);
+        offset = idOffset;
+        
+        // Name string
+        const { str: name, newOffset: nameOffset } = this.readString(view, offset);
+        offset = nameOffset;
+        
+        // Model string
+        const { str: model, newOffset: modelOffset } = this.readString(view, offset);
+        offset = modelOffset;
         
         // World dimensions
         const worldWidth = view.getFloat64(offset);
@@ -251,8 +257,9 @@ export class GameConnection {
         const worldHeight = view.getFloat64(offset);
         offset += 8;
         
-        // Cache our client ID
+        // Cache our client ID and info
         this.clientId = id;
+        this.playerInfoCache.set(id, { name, model });
         
         this.onWelcome({
             id,
