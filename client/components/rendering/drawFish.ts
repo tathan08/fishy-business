@@ -45,11 +45,13 @@ export function drawFish(
     // Use rotation from backend if available, otherwise calculate from velocity
     let angle = 0;
     if (fish.rotation !== undefined) {
-        angle = fish.rotation;
+        // Add 180° because fish images point LEFT, but backend rotation assumes RIGHT
+        angle = fish.rotation + Math.PI;
     } else if (fish.velX !== undefined && fish.velY !== undefined) {
         const speed = Math.sqrt(fish.velX * fish.velX + fish.velY * fish.velY);
         if (speed > 0.1) {
-            angle = Math.atan2(fish.velY, fish.velX);
+            // Add 180° for left-facing fish images
+            angle = Math.atan2(fish.velY, fish.velX) + Math.PI;
         }
     }
 

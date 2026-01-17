@@ -121,10 +121,9 @@ func (w *World) UpdatePhysics(dt float64) {
 		// Update position
 		player.Position = player.Position.Add(player.Velocity.Mul(dt))
 
-		// Update rotation based on velocity
-		// Add π (180°) because fish images have heads pointing left, not right
+		// Update rotation based on velocity (for hitbox calculations)
 		if player.Velocity.Length() > 0.1 {
-			player.Rotation = math.Atan2(player.Velocity.Y, player.Velocity.X) + math.Pi
+			player.Rotation = math.Atan2(player.Velocity.Y, player.Velocity.X)
 		}
 
 		// Clamp to world bounds (hard border)
