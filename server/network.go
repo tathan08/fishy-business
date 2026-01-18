@@ -263,7 +263,7 @@ func (c *Client) SendMessage(msg ServerMessage) {
 	case "state":
 		// High-frequency position updates -> primary socket
 		targetChan = c.Send
-	case "leaderboard", "playerInfo", "welcome":
+	case "leaderboard", "playerInfo", "welcome", "allPlayers":
 		// Low-frequency metadata -> secondary socket (if available)
 		if c.MetaConn != nil {
 			targetChan = c.MetaSend

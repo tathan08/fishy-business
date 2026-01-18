@@ -4,6 +4,7 @@ import { useEffect, useRef, forwardRef, useState } from 'react';
 import type { GameStatePayload, FoodState, PowerupState } from '@/types/game';
 import type { InputHandler } from '@/lib/input';
 import type { FaceTrackingInput } from '@/lib/faceTracking';
+import type { GameConnection } from '@/lib/connection';
 import { drawFish } from './rendering/drawFish';
 import { drawMinimap } from './rendering/drawMinimap';
 import { drawLeaderboard } from './rendering/drawLeaderboard';
@@ -17,6 +18,7 @@ interface Props {
     worldHeight: number;
     inputHandler: InputHandler | null;
     faceTrackingInput: FaceTrackingInput | null;
+    connection: GameConnection | null;
 }
 
 // Random death messages for entertainment
@@ -57,7 +59,7 @@ const KILL_MESSAGES = [
 ];
 
 const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
-    function GameCanvas({ gameState, worldWidth, worldHeight, inputHandler, faceTrackingInput }, ref) {
+    function GameCanvas({ gameState, worldWidth, worldHeight, inputHandler, faceTrackingInput, connection }, ref) {
         const canvasRef = useRef<HTMLCanvasElement>(null);
         const animationFrameRef = useRef<number | undefined>(undefined);
         const previousStateRef = useRef<GameStatePayload | null>(null);
@@ -321,44 +323,61 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                 });
 
                 // Shark vision powerup: Draw arrows pointing to all players
-                if (player.powerupActive && player.model === 'shark') {
+                if (player.powerupActive && player.model === 'shark' && connection) {
                     ctx.save();
-                    gameState.others.forEach((otherPlayer) => {
-                        if (otherPlayer.alive !== false) {
-                            const dx = otherPlayer.x - player.x;
-                            const dy = otherPlayer.y - player.y;
-                            const distance = Math.sqrt(dx * dx + dy * dy);
-                            const angle = Math.atan2(dy, dx);
-                            
-                            // Draw arrow at edge of screen pointing to player
-                            const arrowDistance = Math.min(distance, canvas.width / 4);
-                            const arrowX = player.x + Math.cos(angle) * arrowDistance;
-                            const arrowY = player.y + Math.sin(angle) * arrowDistance;
-                            
-                            ctx.fillStyle = '#ff0000';
-                            ctx.strokeStyle = '#ffffff';
-                            ctx.lineWidth = 2;
-                            
-                            // Draw arrow
-                            ctx.save();
-                            ctx.translate(arrowX, arrowY);
-                            ctx.rotate(angle);
-                            ctx.beginPath();
-                            ctx.moveTo(20, 0);
-                            ctx.lineTo(-10, -15);
-                            ctx.lineTo(-10, 15);
-                            ctx.closePath();
-                            ctx.fill();
-                            ctx.stroke();
-                            
-                            // Draw distance text
-                            ctx.rotate(-angle);
-                            ctx.fillStyle = '#ffffff';
-                            ctx.font = 'bold 12px Arial';
-                            ctx.textAlign = 'center';
-                            ctx.fillText(distance.toFixed(0), 0, -25);
-                            ctx.restore();
-                        }
+                    
+                    // Use all players from connection cache (sent via meta socket)
+                    const allPlayers = connection.getAllPlayers();
+                    console.log('Shark vision active, allPlayers cache size:', allPlayers.size);
+                    
+                    allPlayers.forEach((otherPlayer) => {
+                        // Skip self
+                        if (otherPlayer.id === player.id) return;
+                        
+                        // Check if other player is outside viewport
+                        // Calculate screen position relative to world coordinates
+                        const screenX = otherPlayer.x + cameraX;
+                        const screenY = otherPlayer.y + cameraY;
+                        const isOutsideViewport =
+                            screenX < 0 || screenX > canvas.width ||
+                            screenY < 0 || screenY > canvas.height;
+                        
+                        // Only draw arrows for players outside viewport
+                        if (!isOutsideViewport) return;
+                        
+                        const dx = otherPlayer.x - player.x;
+                        const dy = otherPlayer.y - player.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const angle = Math.atan2(dy, dx);
+                        
+                        // Draw arrow at edge of screen pointing to player
+                        const arrowDistance = Math.min(distance, canvas.width / 4);
+                        const arrowX = player.x + Math.cos(angle) * arrowDistance;
+                        const arrowY = player.y + Math.sin(angle) * arrowDistance;
+                        
+                        ctx.fillStyle = '#ff0000';
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 2;
+                        
+                        // Draw arrow
+                        ctx.save();
+                        ctx.translate(arrowX, arrowY);
+                        ctx.rotate(angle);
+                        ctx.beginPath();
+                        ctx.moveTo(20, 0);
+                        ctx.lineTo(-10, -15);
+                        ctx.lineTo(-10, 15);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                        
+                        // Draw distance text
+                        ctx.rotate(-angle);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = 'bold 12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(distance.toFixed(0), 0, -25);
+                        ctx.restore();
                     });
                     ctx.restore();
                 }

@@ -63,8 +63,10 @@ func (w *World) GameLoop() {
 func (w *World) BroadcastLoop() {
 	stateTicker := time.NewTicker(time.Second / BroadcastRate)
 	leaderboardTicker := time.NewTicker(time.Second) // Leaderboard at 1Hz
+	sharkVisionTicker := time.NewTicker(time.Second / 2) // Shark vision at 0.5Hz
 	defer stateTicker.Stop()
 	defer leaderboardTicker.Stop()
+	defer sharkVisionTicker.Stop()
 
 	for {
 		select {
@@ -72,6 +74,8 @@ func (w *World) BroadcastLoop() {
 			w.BroadcastState() // Send state without leaderboard
 		case <-leaderboardTicker.C:
 			w.BroadcastLeaderboard() // Send leaderboard separately
+		case <-sharkVisionTicker.C:
+			w.BroadcastSharkVision() // Send all player positions to sharks with vision powerup
 		}
 	}
 }
@@ -491,6 +495,62 @@ func (w *World) BroadcastLeaderboard() {
 			Type:    "leaderboard",
 			Payload: leaderboard,
 		})
+	}
+}
+
+// BroadcastSharkVision sends all player positions to sharks with active vision powerup
+func (w *World) BroadcastSharkVision() {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	// Build list of all alive player positions
+	var allPlayers []PlayerPosition
+	for _, p := range w.Players {
+		if p.Alive {
+			allPlayers = append(allPlayers, PlayerPosition{
+				ID: p.ID,
+				X:  p.Position.X,
+				Y:  p.Position.Y,
+			})
+		}
+	}
+
+	// Only send if there are players
+	if len(allPlayers) == 0 {
+		return
+	}
+
+	payload := AllPlayersPayload{
+		Players: allPlayers,
+	}
+
+	// Send to sharks with active vision powerup
+	sharkCount := 0
+	for _, player := range w.Players {
+		if player.Client == nil {
+			continue
+		}
+		
+		if player.Client.MetaConn == nil {
+			if player.PowerupActive && player.Model == "shark" {
+				log.Printf("WARNING: Shark %s has vision active but MetaConn is nil!", player.ID)
+			}
+			continue
+		}
+
+		// Only send to sharks with vision powerup active
+		if player.PowerupActive && player.Model == "shark" {
+			sharkCount++
+			log.Printf("Sending allPlayers to shark %s (PowerupActive=%v, Model=%s)", player.ID, player.PowerupActive, player.Model)
+			player.Client.SendMessage(ServerMessage{
+				Type:    "allPlayers",
+				Payload: payload,
+			})
+		}
+	}
+	
+	if sharkCount > 0 {
+		log.Printf("BroadcastSharkVision: Sent %d player positions to %d sharks", len(allPlayers), sharkCount)
 	}
 }
 

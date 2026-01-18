@@ -100,6 +100,18 @@ type PlayerInfoPayload struct {
 	Model string `json:"model"`
 }
 
+// AllPlayersPayload contains all player positions for shark vision powerup
+type AllPlayersPayload struct {
+	Players []PlayerPosition `json:"players"`
+}
+
+// PlayerPosition is a minimal position data for all players
+type PlayerPosition struct {
+	ID string  `json:"id"`
+	X  float64 `json:"x"`
+	Y  float64 `json:"y"`
+}
+
 // Binary Protocol Implementation
 // Message Types
 const (
@@ -108,6 +120,7 @@ const (
 	MsgTypePong        byte = 3
 	MsgTypeLeaderboard byte = 4
 	MsgTypePlayerInfo  byte = 5 // Send player name/model once
+	MsgTypeAllPlayers  byte = 6 // Send all player positions for shark vision
 )
 
 // EncodeBinaryMessage encodes a server message into binary format
@@ -121,6 +134,8 @@ func EncodeBinaryMessage(msg ServerMessage) ([]byte, error) {
 		return encodeLeaderboard(msg.Payload.([]LeaderboardEntry))
 	case "playerInfo":
 		return encodePlayerInfo(msg.Payload.(PlayerInfoPayload))
+	case "allPlayers":
+		return encodeAllPlayers(msg.Payload.(AllPlayersPayload))
 	case "pong":
 		return []byte{MsgTypePong}, nil
 	default:
@@ -287,6 +302,24 @@ func encodePlayerInfo(info PlayerInfoPayload) ([]byte, error) {
 	buf = appendString(buf, info.ID)
 	buf = appendString(buf, info.Name)
 	buf = appendString(buf, info.Model)
+	return buf, nil
+}
+
+func encodeAllPlayers(payload AllPlayersPayload) ([]byte, error) {
+	capacity := 1 + 2 + len(payload.Players)*20
+	buf := make([]byte, 0, capacity)
+	buf = append(buf, MsgTypeAllPlayers)
+	
+	// Player count
+	buf = append(buf, byte(len(payload.Players)>>8), byte(len(payload.Players)))
+	
+	// Encode each player position
+	for _, p := range payload.Players {
+		buf = appendString(buf, p.ID)
+		buf = appendFloat32(buf, float32(p.X))
+		buf = appendFloat32(buf, float32(p.Y))
+	}
+	
 	return buf, nil
 }
 

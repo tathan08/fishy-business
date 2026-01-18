@@ -18,6 +18,7 @@ export class GameConnection {
     private inputInterval: number | null = null;
     private lastGameState: GameStatePayload | null = null;
     private playerInfoCache: Map<string, { name: string; model: string }> = new Map();
+    private allPlayersCache: Map<string, { id: string; x: number; y: number }> = new Map(); // For shark vision
 
     // Current input state (updated by input handler)
     private currentInput = {
@@ -191,6 +192,10 @@ export class GameConnection {
         this.onDisconnect();
     }
 
+    getAllPlayers(): Map<string, { id: string; x: number; y: number }> {
+        return this.allPlayersCache;
+    }
+
     // Binary protocol decoder
     private async handleBinaryMessage(data: ArrayBuffer | Blob, source: 'primary' | 'meta'): Promise<void> {
         let buffer: ArrayBuffer;
@@ -241,6 +246,9 @@ export class GameConnection {
                     case 5: // PlayerInfo
                         messageLength = this.decodePlayerInfo(view);
                         break;
+                    case 6: // AllPlayers (shark vision)
+                        messageLength = this.decodeAllPlayers(view);
+                        break;
                     default:
                         console.warn('Unknown message type:', msgType, 'at offset', offset);
                         return; // Can't continue if we don't know the length
@@ -290,6 +298,12 @@ export class GameConnection {
             worldWidth,
             worldHeight,
         });
+        
+        // Connect to metadata socket after getting client ID
+        if (!this.metaWs) {
+            const serverUrl = this.ws?.url.replace('?', '').split('?')[0] || '';
+            this.connectMetaSocket(serverUrl, id);
+        }
         
         return offset; // Return total bytes consumed
     }
@@ -354,6 +368,31 @@ export class GameConnection {
         this.onStateUpdate(state);
         
         return offset; // Return total bytes consumed
+    }
+
+    private decodeAllPlayers(view: DataView): number {
+        let offset = 1;
+        const count = view.getUint16(offset);
+        offset += 2;
+        
+        console.log('Decoding allPlayers message, count:', count);
+        
+        // Clear and rebuild cache
+        this.allPlayersCache.clear();
+        
+        for (let i = 0; i < count; i++) {
+            const { str: id, newOffset: idOffset } = this.readString(view, offset);
+            offset = idOffset;
+            
+            const x = view.getFloat32(offset); offset += 4;
+            const y = view.getFloat32(offset); offset += 4;
+            
+            console.log(`Player ${i}: id=${id}, x=${x}, y=${y}`);
+            this.allPlayersCache.set(id, { id, x, y });
+        }
+        
+        console.log('allPlayersCache size after decode:', this.allPlayersCache.size);
+        return offset;
     }
 
     private decodeLeaderboard(view: DataView): number {
