@@ -82,13 +82,13 @@ export default function RacingPage() {
                 
                 if (state.raceState === "racing") {
                     setStatus("racing");
-                    // Only reset cycles when transitioning TO racing (not already racing)
-                    if (previousState !== "racing" && faceTrackingRef.current) {
-                        console.log('Transitioning to racing state - resetting cycles');
-                        faceTrackingRef.current.resetCycles();
-                    }
                 } else if (state.raceState === "countdown") {
                     setStatus("countdown");
+                    // Start 4 second delay when countdown first begins
+                    if (previousState !== "countdown" && faceTrackingRef.current) {
+                        console.log('Countdown started - beginning 4 second delay');
+                        faceTrackingRef.current.startCountdownDelay();
+                    }
                 }
                 
                 // Update previous state

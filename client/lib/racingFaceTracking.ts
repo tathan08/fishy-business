@@ -14,6 +14,8 @@ export class RacingFaceTrackingInput {
     private animationFrameId: number | null = null;
     private isActive = false;
     private stateUpdateInterval: number | null = null;
+    private countingEnabled = true; // Controls whether cycles are counted
+    private delayTimeoutId: number | null = null; // Timeout for 4 second delay
 
     // MediaPipe variables
     private faceLandmarker: FaceLandmarker | null = null;
@@ -35,6 +37,28 @@ export class RacingFaceTrackingInput {
 
     constructor(connection: RacingConnection) {
         this.connection = connection;
+    }
+
+    // Start 4 second delay (called when countdown starts)
+    startCountdownDelay(): void {
+        console.log('Racing face tracking: Starting 4 second delay, pausing cycle counting');
+        this.countingEnabled = false;
+        this.mouthCycles = 0;
+        this.lastMouthState = false;
+        this.mouthOpenSmoothBuffer = [];
+        this.onCycleCount(0);
+        
+        // Clear any existing timeout
+        if (this.delayTimeoutId !== null) {
+            clearTimeout(this.delayTimeoutId);
+        }
+        
+        // Re-enable counting after 4 seconds
+        this.delayTimeoutId = window.setTimeout(() => {
+            console.log('Racing face tracking: 4 second delay complete, enabling cycle counting');
+            this.countingEnabled = true;
+            this.delayTimeoutId = null;
+        }, 4000);
     }
 
     // Reset mouth cycles to 0 (called when race starts)
@@ -191,8 +215,8 @@ export class RacingFaceTrackingInput {
         const openCount = this.mouthOpenSmoothBuffer.filter(x => x).length;
         const smoothedMouthOpen = openCount > this.MOUTH_SMOOTH_FRAMES / 2;
 
-        // Detect complete cycle: open → close
-        if (this.lastMouthState && !smoothedMouthOpen && this.mouthCycles < 50) {
+        // Detect complete cycle: open → close (only if counting is enabled)
+        if (this.countingEnabled && this.lastMouthState && !smoothedMouthOpen && this.mouthCycles < 50) {
             // Mouth just closed after being open - one complete cycle
             this.mouthCycles++;
             this.connection.sendMouthCycle();
