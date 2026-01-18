@@ -306,8 +306,14 @@ export default function GamePage() {
                 </div>
             </div>
 
-            <div className="mt-4 text-white text-sm text-center">
+            <div className="mt-4 text-white text-sm text-center space-y-3">
                 <p>Playing as: <span className="font-bold text-yellow-400">{username}</span></p>
+                <button
+                    onClick={() => router.push('/racing?fromGame=true')}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition-all transform hover:scale-105 shadow-lg"
+                >
+                    🏁 Go to Fish Racing
+                </button>
             </div>
         </div>
     );
