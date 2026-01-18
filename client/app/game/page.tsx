@@ -280,7 +280,7 @@ export default function GamePage() {
                         <div className={!useFaceTracking ? 'opacity-100' : 'opacity-50'}>
                             <div className="font-semibold text-blue-300">⌨️ Keyboard</div>
                             <div className="text-xs pl-3">
-                                • WASD / Arrows - Swim<br />
+                                • WASD - Swim<br />
                                 • Space - Boost
                             </div>
                         </div>
