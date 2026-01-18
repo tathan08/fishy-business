@@ -191,42 +191,6 @@ export default function GamePage() {
             {/* Fish Profile Display - Top Left */}
             {fishProfile && <FishProfileDisplay profile={fishProfile} />}
 
-            {/* How to Play Panel - Left of Minimap */}
-            <div className="absolute top-28 right-[380px] z-10 bg-black/60 backdrop-blur-sm rounded-lg p-4 w-52 border border-white/20">
-                <h3 className="text-yellow-400 font-bold text-base mb-2 flex items-center gap-2">
-                    🎮 How to Play
-                </h3>
-                <div className="text-white text-xs space-y-2">
-                    {/* Keyboard Controls */}
-                    <div className={!useFaceTracking ? 'opacity-100' : 'opacity-50'}>
-                        <div className="font-semibold text-blue-300">⌨️ Keyboard</div>
-                        <div className="text-xs pl-3">
-                            • WASD / Arrows - Swim<br />
-                            • Space - Boost
-                        </div>
-                    </div>
-
-                    {/* Face Tracking */}
-                    <div className={useFaceTracking ? 'opacity-100' : 'opacity-50'}>
-                        <div className="font-semibold text-purple-300">📹 Face Tracking</div>
-                        <div className="text-xs pl-3">
-                            • turn head - Swim<br />
-                            • Open mouth - Boost
-                        </div>
-                    </div>
-
-                    {/* Game Rules */}
-                    <div className="border-t border-white/20 pt-2 mt-2">
-                        <div className="font-semibold text-green-300">🎯 Goal</div>
-                        <div className="text-xs pl-3">
-                            • Eat food & smaller fish<br />
-                            • Grow bigger to survive<br />
-                            • Become the biggest!
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             {/* Face Tracking Controls - Top Right */}
             <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-10">
                 <div className="flex gap-2 items-center">
@@ -293,14 +257,54 @@ export default function GamePage() {
                 <h1 className="text-2xl font-bold">🐟 Fishy Business</h1>
             </div>
 
-            <GameCanvas
-                ref={canvasRef}
-                gameState={gameState}
-                worldWidth={worldSize.width}
-                worldHeight={worldSize.height}
-                inputHandler={inputHandlerRef.current}
-                faceTrackingInput={faceTrackingRef.current}
-            />
+            {/* Canvas Container with Instructions Panel */}
+            <div className="relative">
+                <GameCanvas
+                    ref={canvasRef}
+                    gameState={gameState}
+                    worldWidth={worldSize.width}
+                    worldHeight={worldSize.height}
+                    inputHandler={inputHandlerRef.current}
+                    faceTrackingInput={faceTrackingRef.current}
+                />
+
+                {/* How to Play Panel - Positioned relative to minimap */}
+                {/* Minimap is at canvas top-right (220px from right, 20px from top) */}
+                <div className="absolute top-5 right-60 z-10 bg-black/60 backdrop-blur-sm rounded-lg p-4 w-52 border border-white/20">
+                    <h3 className="text-yellow-400 font-bold text-base mb-2 flex items-center gap-2">
+                        🎮 How to Play
+                    </h3>
+                    <div className="text-white text-xs space-y-2">
+                        {/* Keyboard Controls */}
+                        <div className={!useFaceTracking ? 'opacity-100' : 'opacity-50'}>
+                            <div className="font-semibold text-blue-300">⌨️ Keyboard</div>
+                            <div className="text-xs pl-3">
+                                • WASD / Arrows - Swim<br />
+                                • Space - Boost
+                            </div>
+                        </div>
+
+                        {/* Face Tracking */}
+                        <div className={useFaceTracking ? 'opacity-100' : 'opacity-50'}>
+                            <div className="font-semibold text-purple-300">📹 Face Tracking</div>
+                            <div className="text-xs pl-3">
+                                • turn head - Swim<br />
+                                • Open mouth - Boost
+                            </div>
+                        </div>
+
+                        {/* Game Rules */}
+                        <div className="border-t border-white/20 pt-2 mt-2">
+                            <div className="font-semibold text-green-300">🎯 Goal</div>
+                            <div className="text-xs pl-3">
+                                • Eat food & smaller fish<br />
+                                • Grow bigger to survive<br />
+                                • Become the biggest!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div className="mt-4 text-white text-sm text-center">
                 <p>Playing as: <span className="font-bold text-yellow-400">{username}</span></p>

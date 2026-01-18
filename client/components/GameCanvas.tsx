@@ -268,6 +268,8 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
 
                 // Set food color once for better performance
                 ctx.fillStyle = '#10b981';
+                ctx.strokeStyle = '#065f46'; // Dark green outline
+                ctx.lineWidth = 2;
                 gameState.food.forEach((food: FoodState) => {
                     // Only render food within viewport
                     if (food.x >= viewportLeft && food.x <= viewportRight &&
@@ -275,6 +277,7 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                         ctx.beginPath();
                         ctx.arc(food.x, food.y, food.r, 0, Math.PI * 2);
                         ctx.fill();
+                        ctx.stroke(); // Add outline
                     }
                 });
 
