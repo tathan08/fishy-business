@@ -46,7 +46,7 @@ const DEFAULT_HITBOX = {
 };
 
 // Debug flag - set to true to see hitboxes
-const DEBUG_HITBOXES = true;
+const DEBUG_HITBOXES = false;
 
 /**
  * Draw powerup effects for active powerups
