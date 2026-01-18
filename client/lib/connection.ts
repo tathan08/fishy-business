@@ -18,6 +18,7 @@ export class GameConnection {
     private inputInterval: number | null = null;
     private lastGameState: GameStatePayload | null = null;
     private playerInfoCache: Map<string, { name: string; model: string }> = new Map();
+    private allPlayersCache: Map<string, { id: string; x: number; y: number }> = new Map(); // For shark vision
 
     // Current input state (updated by input handler)
     private currentInput = {
@@ -191,6 +192,10 @@ export class GameConnection {
         this.onDisconnect();
     }
 
+    getAllPlayers(): Map<string, { id: string; x: number; y: number }> {
+        return this.allPlayersCache;
+    }
+
     // Binary protocol decoder
     private async handleBinaryMessage(data: ArrayBuffer | Blob, source: 'primary' | 'meta'): Promise<void> {
         let buffer: ArrayBuffer;
@@ -240,6 +245,9 @@ export class GameConnection {
                         break;
                     case 5: // PlayerInfo
                         messageLength = this.decodePlayerInfo(view);
+                        break;
+                    case 6: // AllPlayers (shark vision)
+                        messageLength = this.decodeAllPlayers(view);
                         break;
                     default:
                         console.warn('Unknown message type:', msgType, 'at offset', offset);
@@ -291,6 +299,12 @@ export class GameConnection {
             worldHeight,
         });
         
+        // Connect to metadata socket after getting client ID
+        if (!this.metaWs) {
+            const serverUrl = this.ws?.url.replace('?', '').split('?')[0] || '';
+            this.connectMetaSocket(serverUrl, id);
+        }
+        
         return offset; // Return total bytes consumed
     }
 
@@ -321,6 +335,16 @@ export class GameConnection {
             offset = newOffset;
         }
         
+        // Decode powerups
+        const powerupCount = view.getUint16(offset);
+        offset += 2;
+        const powerups: any[] = [];
+        for (let i = 0; i < powerupCount; i++) {
+            const { powerupItem, newOffset } = this.decodePowerupState(view, offset);
+            powerups.push(powerupItem);
+            offset = newOffset;
+        }
+        
         // Leaderboard no longer sent with state - use cached
         const leaderboard = this.lastGameState?.leaderboard || [];
         
@@ -336,6 +360,7 @@ export class GameConnection {
             you: fullPlayer,
             others,
             food,
+            powerups,
             leaderboard,
         };
         
@@ -343,6 +368,31 @@ export class GameConnection {
         this.onStateUpdate(state);
         
         return offset; // Return total bytes consumed
+    }
+
+    private decodeAllPlayers(view: DataView): number {
+        let offset = 1;
+        const count = view.getUint16(offset);
+        offset += 2;
+        
+        console.log('Decoding allPlayers message, count:', count);
+        
+        // Clear and rebuild cache
+        this.allPlayersCache.clear();
+        
+        for (let i = 0; i < count; i++) {
+            const { str: id, newOffset: idOffset } = this.readString(view, offset);
+            offset = idOffset;
+            
+            const x = view.getFloat32(offset); offset += 4;
+            const y = view.getFloat32(offset); offset += 4;
+            
+            console.log(`Player ${i}: id=${id}, x=${x}, y=${y}`);
+            this.allPlayersCache.set(id, { id, x, y });
+        }
+        
+        console.log('allPlayersCache size after decode:', this.allPlayersCache.size);
+        return offset;
     }
 
     private decodeLeaderboard(view: DataView): number {
@@ -372,6 +422,7 @@ export class GameConnection {
         const alive = (flags & 1) !== 0;
         const hasKilledBy = (flags & 2) !== 0;
         const hasRespawnIn = (flags & 4) !== 0;
+        const powerupActive = (flags & 8) !== 0;
         
         // No ID, Name, Model - those are cached from welcome/playerInfo
         
@@ -390,6 +441,7 @@ export class GameConnection {
         // Optional fields
         let killedBy: string | undefined;
         let respawnIn: number | undefined;
+        let powerupDuration: number | undefined;
         
         if (hasKilledBy) {
             const { str, newOffset } = this.readString(view, offset);
@@ -402,8 +454,13 @@ export class GameConnection {
             offset += 4;
         }
         
+        if (powerupActive) {
+            powerupDuration = view.getFloat32(offset);
+            offset += 4;
+        }
+        
         return {
-            player: { x, y, velX, velY, rotation, size, score, alive, seq, killedBy, respawnIn },
+            player: { x, y, velX, velY, rotation, size, score, alive, seq, killedBy, respawnIn, powerupActive, powerupDuration },
             newOffset: offset
         };
     }
@@ -420,13 +477,16 @@ export class GameConnection {
         const rotation = view.getFloat32(offset); offset += 4;
         const size = view.getFloat32(offset); offset += 4;
         
+        // Powerup active flag
+        const powerupActive = view.getUint8(offset) === 1; offset += 1;
+        
         // Get cached name/model
         const cachedInfo = this.playerInfoCache.get(id);
         const name = cachedInfo?.name || 'Unknown';
         const model = cachedInfo?.model || 'swordfish';
         
         return {
-            other: { id, name, model, x, y, velX, velY, rotation, size },
+            other: { id, name, model, x, y, velX, velY, rotation, size, powerupActive },
             newOffset: offset
         };
     }
@@ -457,6 +517,18 @@ export class GameConnection {
         
         return {
             foodItem: { id, x, y, r },
+            newOffset: offset
+        };
+    }
+
+    private decodePowerupState(view: DataView, offset: number): { powerupItem: any; newOffset: number } {
+        const id = Number(view.getBigUint64(offset)); offset += 8;
+        const x = view.getFloat32(offset); offset += 4;
+        const y = view.getFloat32(offset); offset += 4;
+        const r = view.getFloat32(offset); offset += 4;
+        
+        return {
+            powerupItem: { id, x, y, r },
             newOffset: offset
         };
     }

@@ -266,6 +266,7 @@ export default function GamePage() {
                     worldHeight={worldSize.height}
                     inputHandler={inputHandlerRef.current}
                     faceTrackingInput={faceTrackingRef.current}
+                    connection={connectionRef.current}
                 />
 
                 {/* How to Play Panel - Positioned relative to minimap */}

@@ -33,6 +33,7 @@ type GameStatePayload struct {
 	You         PlayerState        `json:"you"`
 	Others      []OtherPlayerState `json:"others"`
 	Food        []FoodState        `json:"food"`
+	Powerups    []PowerupState     `json:"powerups"`
 	Leaderboard []LeaderboardEntry `json:"leaderboard"`
 }
 
@@ -52,6 +53,8 @@ type PlayerState struct {
 	Model      string   `json:"model,omitempty"`
 	KilledBy   *string  `json:"killedBy,omitempty"`
 	RespawnIn  *float64 `json:"respawnIn,omitempty"`
+	PowerupActive bool  `json:"powerupActive,omitempty"`
+	PowerupDuration float64 `json:"powerupDuration,omitempty"`
 }
 
 // OtherPlayerState represents another player's state
@@ -65,10 +68,19 @@ type OtherPlayerState struct {
 	Rotation float64 `json:"rotation"`
 	Size     float64 `json:"size"`
 	Model    string  `json:"model,omitempty"`
+	PowerupActive bool `json:"powerupActive,omitempty"`
 }
 
 // FoodState represents a food item's state
 type FoodState struct {
+	ID uint64  `json:"id"`
+	X  float64 `json:"x"`
+	Y  float64 `json:"y"`
+	R  float64 `json:"r"`
+}
+
+// PowerupState represents a powerup item's state
+type PowerupState struct {
 	ID uint64  `json:"id"`
 	X  float64 `json:"x"`
 	Y  float64 `json:"y"`
@@ -88,6 +100,18 @@ type PlayerInfoPayload struct {
 	Model string `json:"model"`
 }
 
+// AllPlayersPayload contains all player positions for shark vision powerup
+type AllPlayersPayload struct {
+	Players []PlayerPosition `json:"players"`
+}
+
+// PlayerPosition is a minimal position data for all players
+type PlayerPosition struct {
+	ID string  `json:"id"`
+	X  float64 `json:"x"`
+	Y  float64 `json:"y"`
+}
+
 // Binary Protocol Implementation
 // Message Types
 const (
@@ -96,6 +120,7 @@ const (
 	MsgTypePong        byte = 3
 	MsgTypeLeaderboard byte = 4
 	MsgTypePlayerInfo  byte = 5 // Send player name/model once
+	MsgTypeAllPlayers  byte = 6 // Send all player positions for shark vision
 )
 
 // EncodeBinaryMessage encodes a server message into binary format
@@ -109,6 +134,8 @@ func EncodeBinaryMessage(msg ServerMessage) ([]byte, error) {
 		return encodeLeaderboard(msg.Payload.([]LeaderboardEntry))
 	case "playerInfo":
 		return encodePlayerInfo(msg.Payload.(PlayerInfoPayload))
+	case "allPlayers":
+		return encodeAllPlayers(msg.Payload.(AllPlayersPayload))
 	case "pong":
 		return []byte{MsgTypePong}, nil
 	default:
@@ -140,7 +167,7 @@ func encodeWelcome(payload WelcomePayload) ([]byte, error) {
 
 func encodeGameState(state GameStatePayload) ([]byte, error) {
 	// Estimate size (no leaderboard - sent separately)
-	capacity := 1 + 64 + len(state.Others)*32 + len(state.Food)*20
+	capacity := 1 + 64 + len(state.Others)*32 + len(state.Food)*20 + len(state.Powerups)*20
 	buf := make([]byte, 0, capacity)
 	
 	buf = append(buf, MsgTypeState)
@@ -160,13 +187,19 @@ func encodeGameState(state GameStatePayload) ([]byte, error) {
 		buf = encodeFoodState(buf, food)
 	}
 	
+	// Encode powerups count + data
+	buf = append(buf, byte(len(state.Powerups)>>8), byte(len(state.Powerups)))
+	for _, powerup := range state.Powerups {
+		buf = encodePowerupState(buf, powerup)
+	}
+	
 	// Leaderboard is sent separately at lower frequency
 	
 	return buf, nil
 }
 
 func encodePlayerState(buf []byte, player PlayerState) []byte {
-	// Flags byte: bit 0 = alive, bit 1 = has killedBy, bit 2 = has respawnIn
+	// Flags byte: bit 0 = alive, bit 1 = has killedBy, bit 2 = has respawnIn, bit 3 = powerupActive
 	flags := byte(0)
 	if player.Alive {
 		flags |= 1
@@ -176,6 +209,9 @@ func encodePlayerState(buf []byte, player PlayerState) []byte {
 	}
 	if player.RespawnIn != nil {
 		flags |= 4
+	}
+	if player.PowerupActive {
+		flags |= 8
 	}
 	buf = append(buf, flags)
 	
@@ -199,6 +235,9 @@ func encodePlayerState(buf []byte, player PlayerState) []byte {
 	if player.RespawnIn != nil {
 		buf = appendFloat32(buf, float32(*player.RespawnIn))
 	}
+	if player.PowerupActive {
+		buf = appendFloat32(buf, float32(player.PowerupDuration))
+	}
 	
 	return buf
 }
@@ -212,6 +251,14 @@ func encodeOtherPlayer(buf []byte, player OtherPlayerState) []byte {
 	buf = appendFloat32(buf, float32(player.VelY))
 	buf = appendFloat32(buf, float32(player.Rotation))
 	buf = appendFloat32(buf, float32(player.Size))
+	
+	// Add powerup active flag (1 byte)
+	if player.PowerupActive {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
+	}
+	
 	return buf
 }
 
@@ -220,6 +267,14 @@ func encodeFoodState(buf []byte, food FoodState) []byte {
 	buf = appendFloat32(buf, float32(food.X))
 	buf = appendFloat32(buf, float32(food.Y))
 	buf = appendFloat32(buf, float32(food.R))
+	return buf
+}
+
+func encodePowerupState(buf []byte, powerup PowerupState) []byte {
+	buf = appendUint64(buf, powerup.ID)
+	buf = appendFloat32(buf, float32(powerup.X))
+	buf = appendFloat32(buf, float32(powerup.Y))
+	buf = appendFloat32(buf, float32(powerup.R))
 	return buf
 }
 
@@ -247,6 +302,24 @@ func encodePlayerInfo(info PlayerInfoPayload) ([]byte, error) {
 	buf = appendString(buf, info.ID)
 	buf = appendString(buf, info.Name)
 	buf = appendString(buf, info.Model)
+	return buf, nil
+}
+
+func encodeAllPlayers(payload AllPlayersPayload) ([]byte, error) {
+	capacity := 1 + 2 + len(payload.Players)*20
+	buf := make([]byte, 0, capacity)
+	buf = append(buf, MsgTypeAllPlayers)
+	
+	// Player count
+	buf = append(buf, byte(len(payload.Players)>>8), byte(len(payload.Players)))
+	
+	// Encode each player position
+	for _, p := range payload.Players {
+		buf = appendString(buf, p.ID)
+		buf = appendFloat32(buf, float32(p.X))
+		buf = appendFloat32(buf, float32(p.Y))
+	}
+	
 	return buf, nil
 }
 
