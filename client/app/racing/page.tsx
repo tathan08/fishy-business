@@ -23,6 +23,7 @@ export default function RacingPage() {
     const connectionRef = useRef<RacingConnection | null>(null);
     const faceTrackingRef = useRef<RacingFaceTrackingInput | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const previousRaceStateRef = useRef<string | null>(null); // Track previous state
     // Preload saca (right-facing) fish image for lane indicator
     const sacaImgRef = useRef<HTMLImageElement | null>(null);
     const autoStartRef = useRef<boolean>(false);
@@ -76,12 +77,22 @@ export default function RacingPage() {
             };
 
             connection.onRaceState = (state: RaceStatePayload) => {
+                const previousState = previousRaceStateRef.current;
                 setRaceState(state);
+                
                 if (state.raceState === "racing") {
                     setStatus("racing");
+                    // Only reset cycles when transitioning TO racing (not already racing)
+                    if (previousState !== "racing" && faceTrackingRef.current) {
+                        console.log('Transitioning to racing state - resetting cycles');
+                        faceTrackingRef.current.resetCycles();
+                    }
                 } else if (state.raceState === "countdown") {
                     setStatus("countdown");
                 }
+                
+                // Update previous state
+                previousRaceStateRef.current = state.raceState;
             };
 
             connection.onRaceResults = (resultsData: RaceResultsPayload) => {

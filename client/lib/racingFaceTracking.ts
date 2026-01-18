@@ -37,6 +37,15 @@ export class RacingFaceTrackingInput {
         this.connection = connection;
     }
 
+    // Reset mouth cycles to 0 (called when race starts)
+    resetCycles(): void {
+        console.log('Racing face tracking: Resetting cycle count to 0');
+        this.mouthCycles = 0;
+        this.lastMouthState = false;
+        this.mouthOpenSmoothBuffer = [];
+        this.onCycleCount(0);
+    }
+
     async start(): Promise<void> {
         try {
             console.log('Racing face tracking: Starting...');
