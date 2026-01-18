@@ -321,6 +321,16 @@ export class GameConnection {
             offset = newOffset;
         }
         
+        // Decode powerups
+        const powerupCount = view.getUint16(offset);
+        offset += 2;
+        const powerups: any[] = [];
+        for (let i = 0; i < powerupCount; i++) {
+            const { powerupItem, newOffset } = this.decodePowerupState(view, offset);
+            powerups.push(powerupItem);
+            offset = newOffset;
+        }
+        
         // Leaderboard no longer sent with state - use cached
         const leaderboard = this.lastGameState?.leaderboard || [];
         
@@ -336,6 +346,7 @@ export class GameConnection {
             you: fullPlayer,
             others,
             food,
+            powerups,
             leaderboard,
         };
         
@@ -457,6 +468,18 @@ export class GameConnection {
         
         return {
             foodItem: { id, x, y, r },
+            newOffset: offset
+        };
+    }
+
+    private decodePowerupState(view: DataView, offset: number): { powerupItem: any; newOffset: number } {
+        const id = Number(view.getBigUint64(offset)); offset += 8;
+        const x = view.getFloat32(offset); offset += 4;
+        const y = view.getFloat32(offset); offset += 4;
+        const r = view.getFloat32(offset); offset += 4;
+        
+        return {
+            powerupItem: { id, x, y, r },
             newOffset: offset
         };
     }

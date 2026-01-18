@@ -26,6 +26,11 @@ const (
 	MaxFoodSize   = 10.0
 	FoodValue     = 2.0 // size gained when eating food
 
+	// Powerup configuration
+	MaxPowerupCount = 3    // 3 powerups on the map
+	PowerupSize     = 15.0 // Bigger than regular food
+	PowerupDuration = 5.0  // seconds
+
 	// Gameplay
 	RespawnDelay   = 3.0 // seconds
 	SizeMultiplier = 1.0 // need to be this much bigger to eat another fish (1.0 = same size allowed)

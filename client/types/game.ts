@@ -39,9 +39,18 @@ export interface PlayerState {
     killedBy?: string | null;
     respawnIn?: number | null;
     model?: FishModel;
+    powerupActive?: boolean;
+    powerupDuration?: number;
 }
 
 export interface FoodState {
+    id: number;
+    x: number;
+    y: number;
+    r: number;
+}
+
+export interface PowerupState {
     id: number;
     x: number;
     y: number;
@@ -57,6 +66,7 @@ export interface GameStatePayload {
     you: PlayerState;
     others: PlayerState[];
     food: FoodState[];
+    powerups: PowerupState[];
     leaderboard: LeaderboardEntry[];
 }
 

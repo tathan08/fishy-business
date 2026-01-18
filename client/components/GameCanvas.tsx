@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, forwardRef, useState } from 'react';
-import type { GameStatePayload, FoodState } from '@/types/game';
+import type { GameStatePayload, FoodState, PowerupState } from '@/types/game';
 import type { InputHandler } from '@/lib/input';
 import type { FaceTrackingInput } from '@/lib/faceTracking';
 import { drawFish } from './rendering/drawFish';
@@ -281,6 +281,37 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                     }
                 });
 
+                // Draw powerups (RED colored with glow effect)
+                if (gameState.powerups) {
+                    gameState.powerups.forEach((powerup) => {
+                        // Only render powerups within viewport
+                        if (powerup.x >= viewportLeft && powerup.x <= viewportRight &&
+                            powerup.y >= viewportTop && powerup.y <= viewportBottom) {
+                            // Add glow effect
+                            ctx.shadowBlur = 20;
+                            ctx.shadowColor = '#ff0000';
+                            
+                            // Draw outer glow circle
+                            ctx.fillStyle = '#ff000066'; // Semi-transparent red
+                            ctx.beginPath();
+                            ctx.arc(powerup.x, powerup.y, powerup.r * 1.5, 0, Math.PI * 2);
+                            ctx.fill();
+                            
+                            // Draw main powerup circle
+                            ctx.fillStyle = '#ff0000'; // Bright red
+                            ctx.strokeStyle = '#8b0000'; // Dark red outline
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.arc(powerup.x, powerup.y, powerup.r, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.stroke();
+                            
+                            // Reset shadow
+                            ctx.shadowBlur = 0;
+                        }
+                    });
+                }
+
                 // Draw other players (interpolated)
                 gameState.others.forEach((otherPlayer) => {
                     if (otherPlayer.alive !== false) {
@@ -288,6 +319,49 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                         drawFish(ctx, interpolated, false);
                     }
                 });
+
+                // Shark vision powerup: Draw arrows pointing to all players
+                if (player.powerupActive && player.model === 'shark') {
+                    ctx.save();
+                    gameState.others.forEach((otherPlayer) => {
+                        if (otherPlayer.alive !== false) {
+                            const dx = otherPlayer.x - player.x;
+                            const dy = otherPlayer.y - player.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            const angle = Math.atan2(dy, dx);
+                            
+                            // Draw arrow at edge of screen pointing to player
+                            const arrowDistance = Math.min(distance, canvas.width / 4);
+                            const arrowX = player.x + Math.cos(angle) * arrowDistance;
+                            const arrowY = player.y + Math.sin(angle) * arrowDistance;
+                            
+                            ctx.fillStyle = '#ff0000';
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 2;
+                            
+                            // Draw arrow
+                            ctx.save();
+                            ctx.translate(arrowX, arrowY);
+                            ctx.rotate(angle);
+                            ctx.beginPath();
+                            ctx.moveTo(20, 0);
+                            ctx.lineTo(-10, -15);
+                            ctx.lineTo(-10, 15);
+                            ctx.closePath();
+                            ctx.fill();
+                            ctx.stroke();
+                            
+                            // Draw distance text
+                            ctx.rotate(-angle);
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = 'bold 12px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.fillText(distance.toFixed(0), 0, -25);
+                            ctx.restore();
+                        }
+                    });
+                    ctx.restore();
+                }
 
                 // Draw player (on top)
                 if (player.alive !== false) {
@@ -352,6 +426,54 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                 drawMinimap(ctx, gameState, canvas, worldWidth, worldHeight, cameraX, cameraY);
                 drawLeaderboard(ctx, gameState, canvas.width, player);
                 drawKillFeed(ctx, killFeed, canvas.width, gameState.leaderboard.length);
+
+                // Draw powerup timer if active
+                if (player.powerupActive && player.powerupDuration !== undefined) {
+                    const timerY = canvas.height - 100;
+                    const timerX = canvas.width / 2;
+                    
+                    // Background
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(timerX - 100, timerY - 30, 200, 50);
+                    
+                    // Border
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(timerX - 100, timerY - 30, 200, 50);
+                    
+                    // Powerup name
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    const powerupNames: Record<string, string> = {
+                        swordfish: '⚔️ RANGE BOOST',
+                        blobfish: '🛡️ INVULNERABLE',
+                        pufferfish: '📏 SIZE BOOST',
+                        shark: '👁️ VISION',
+                        sacabambaspis: '⚪ BALL FORM'
+                    };
+                    ctx.fillText(powerupNames[player.model || 'swordfish'] || 'POWERUP', timerX, timerY - 8);
+                    
+                    // Timer bar
+                    const barWidth = 180;
+                    const barHeight = 10;
+                    const barX = timerX - barWidth / 2;
+                    const barY = timerY + 5;
+                    
+                    // Background bar
+                    ctx.fillStyle = '#333333';
+                    ctx.fillRect(barX, barY, barWidth, barHeight);
+                    
+                    // Progress bar
+                    const progress = player.powerupDuration / 5.0; // 5 seconds duration
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+                    
+                    // Timer text
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.fillText(player.powerupDuration.toFixed(1) + 's', timerX, timerY - 8 + 30);
+                }
 
                 // Request next frame
                 animationFrameRef.current = requestAnimationFrame(render);

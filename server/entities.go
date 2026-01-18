@@ -25,6 +25,10 @@ type Player struct {
 	InputBoost     bool
 	Client         *Client
 	mu             sync.RWMutex
+	// Powerup state
+	PowerupActive   bool
+	PowerupDuration float64
+	BaseSize        float64 // For pufferfish size powerup
 }
 
 // NewPlayer creates a new player at a random position
@@ -87,6 +91,11 @@ func (p *Player) GetMouthHitbox() Circle {
 	
 	// Mouth radius is a fraction of the capped size
 	mouthRadius := cappedSize * config.MouthSizeRatio
+
+	// Swordfish powerup: increase range
+	if p.PowerupActive && p.Model == "swordfish" {
+		mouthRadius *= 1.5
+	}
 	
 	// Mouth position is offset in front of the fish
 	offsetDistance := cappedSize * config.MouthOffsetRatio
@@ -137,6 +146,32 @@ func (f *Food) GetBounds() Rect {
 		Y:      f.Position.Y - f.Size,
 		Width:  f.Size * 2,
 		Height: f.Size * 2,
+	}
+}
+
+// Powerup represents a powerup item in the game
+type Powerup struct {
+	ID       uint64
+	Position Vec2
+	Size     float64
+}
+
+// NewPowerup creates a new powerup at a random position
+func NewPowerup(id uint64) *Powerup {
+	return &Powerup{
+		ID:       id,
+		Position: Vec2{X: RandomFloat(0, WorldWidth), Y: RandomFloat(0, WorldHeight)},
+		Size:     PowerupSize,
+	}
+}
+
+// GetBounds returns the bounding box of the powerup
+func (p *Powerup) GetBounds() Rect {
+	return Rect{
+		X:      p.Position.X - p.Size,
+		Y:      p.Position.Y - p.Size,
+		Width:  p.Size * 2,
+		Height: p.Size * 2,
 	}
 }
 

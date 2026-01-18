@@ -36,9 +36,35 @@ export function drawMinimap(
     ctx.lineWidth = 10;
     ctx.strokeRect(0, 0, worldWidth, worldHeight);
 
+    // Draw powerups as red dots (always visible)
+    if (gameState.powerups) {
+        gameState.powerups.forEach((powerup) => {
+            ctx.fillStyle = '#ff0000';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(powerup.x, powerup.y, 25, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        });
+    }
+
     // Draw other players as small dots
     gameState.others.forEach((other: PlayerState) => {
-        ctx.fillStyle = '#60a5fa';
+        // Show all players if shark has vision powerup
+        const showAll = gameState.you.powerupActive && gameState.you.model === 'shark';
+        
+        if (showAll) {
+            // Highlight all players with red pulsing dots
+            const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+            ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ff0000';
+        } else {
+            ctx.fillStyle = '#60a5fa';
+            ctx.shadowBlur = 0;
+        }
+        
         ctx.beginPath();
         ctx.arc(other.x, other.y, 20, 0, Math.PI * 2);
         ctx.fill();

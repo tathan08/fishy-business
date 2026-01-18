@@ -10,21 +10,25 @@ import (
 
 // World represents the game world state
 type World struct {
-	Players    map[string]*Player
-	Food       map[uint64]*Food
-	InputQueue chan PlayerInput
-	Quadtree   *Quadtree
-	NextFoodID uint64
-	mu         sync.RWMutex
+	Players      map[string]*Player
+	Food         map[uint64]*Food
+	Powerups     map[uint64]*Powerup
+	InputQueue   chan PlayerInput
+	Quadtree     *Quadtree
+	NextFoodID   uint64
+	NextPowerupID uint64
+	mu           sync.RWMutex
 }
 
 // NewWorld creates a new world
 func NewWorld() *World {
 	return &World{
-		Players:    make(map[string]*Player),
-		Food:       make(map[uint64]*Food),
-		InputQueue: make(chan PlayerInput, InputQueueSize),
-		NextFoodID: 1,
+		Players:       make(map[string]*Player),
+		Food:          make(map[uint64]*Food),
+		Powerups:      make(map[uint64]*Powerup),
+		InputQueue:    make(chan PlayerInput, InputQueueSize),
+		NextFoodID:    1,
+		NextPowerupID: 1,
 	}
 }
 
@@ -33,6 +37,11 @@ func (w *World) Start() {
 	// Spawn initial food
 	for i := 0; i < MaxFoodCount; i++ {
 		w.SpawnFood()
+	}
+
+	// Spawn initial powerups
+	for i := 0; i < MaxPowerupCount; i++ {
+		w.SpawnPowerup()
 	}
 
 	// Start game loop
@@ -87,8 +96,12 @@ func (w *World) Update(dt float64) {
 	// 5. Handle deaths and respawns
 	w.HandleRespawns(dt)
 
-	// 6. Spawn food
+	// 6. Update powerup timers
+	w.UpdatePowerups(dt)
+
+	// 7. Spawn food and powerups
 	w.SpawnFoodIfNeeded()
+	w.SpawnPowerupIfNeeded()
 }
 
 // ProcessInputs drains the input queue and updates player input state
@@ -175,6 +188,11 @@ func (w *World) RebuildQuadtree() {
 	for _, food := range w.Food {
 		w.Quadtree.Insert(&FoodEntity{Food: food})
 	}
+
+	// Insert all powerups
+	for _, powerup := range w.Powerups {
+		w.Quadtree.Insert(&PowerupEntity{Powerup: powerup})
+	}
 }
 
 // DetectCollisions checks for collisions between entities
@@ -223,6 +241,24 @@ func (w *World) DetectCollisions() {
 				
 				if mouthCollision || bodyCollision {
 					w.EatFood(player, e.Food)
+				}
+
+			case *PowerupEntity:
+				// Check if player's mouth OR body collects powerup (powerup is circular)
+				powerupCircle := Circle{
+					Center: e.Position,
+					Radius: e.Size,
+				}
+				
+				// Check mouth hitbox
+				mouthCollision := CircleCircleCollision(playerMouth, powerupCircle)
+				
+				// Check body hitbox
+				playerBody := player.GetBodyHitbox()
+				bodyCollision := CircleOrientedRectCollision(powerupCircle, playerBody)
+				
+				if mouthCollision || bodyCollision {
+					w.CollectPowerup(player, e.Powerup)
 				}
 			}
 		}
@@ -273,6 +309,11 @@ func (w *World) EatPlayer(eater, eaten *Player) {
 		return
 	}
 
+	// Blobfish invulnerability - cannot be eaten
+	if eaten.PowerupActive && eaten.Model == "blobfish" {
+		return
+	}
+
 	// Transfer size
 	eater.Size += eaten.Size * 0.5
 	if eater.Size > MaxPlayerSize {
@@ -305,6 +346,67 @@ func (w *World) EatFood(player *Player, food *Food) {
 	delete(w.Food, food.ID)
 }
 
+// CollectPowerup handles a player collecting a powerup
+func (w *World) CollectPowerup(player *Player, powerup *Powerup) {
+	// Don't collect if already has powerup active
+	if player.PowerupActive {
+		return
+	}
+
+	// Activate powerup based on fish model
+	player.PowerupActive = true
+	player.PowerupDuration = PowerupDuration
+
+	// Apply powerup effects based on model
+	switch player.Model {
+	case "swordfish":
+		// Range increase - handled in GetMouthHitbox
+		log.Printf("Player %s (swordfish) activated range powerup", player.Name)
+	case "blobfish":
+		// Invulnerability - handled in EatPlayer
+		log.Printf("Player %s (blobfish) activated invulnerability powerup", player.Name)
+	case "pufferfish":
+		// Size increase
+		player.BaseSize = player.Size
+		player.Size *= 1.5
+		if player.Size > MaxPlayerSize {
+			player.Size = MaxPlayerSize
+		}
+		log.Printf("Player %s (pufferfish) activated size powerup", player.Name)
+	case "shark":
+		// Vision powerup - handled in client rendering
+		log.Printf("Player %s (shark) activated vision powerup", player.Name)
+	case "sacabambaspis":
+		// Ball form - handled in client rendering
+		log.Printf("Player %s (sacabambaspis) activated ball powerup", player.Name)
+	}
+
+	// Remove powerup
+	delete(w.Powerups, powerup.ID)
+}
+
+// UpdatePowerups updates powerup timers and deactivates expired powerups
+func (w *World) UpdatePowerups(dt float64) {
+	for _, player := range w.Players {
+		if player.PowerupActive {
+			player.PowerupDuration -= dt
+			if player.PowerupDuration <= 0 {
+				// Deactivate powerup
+				player.PowerupActive = false
+				player.PowerupDuration = 0
+
+				// Revert pufferfish size
+				if player.Model == "pufferfish" && player.BaseSize > 0 {
+					player.Size = player.BaseSize
+					player.BaseSize = 0
+				}
+
+				log.Printf("Player %s powerup expired", player.Name)
+			}
+		}
+	}
+}
+
 // HandleRespawns updates respawn timers and respawns dead players
 func (w *World) HandleRespawns(dt float64) {
 	for _, player := range w.Players {
@@ -333,6 +435,23 @@ func (w *World) SpawnFood() {
 	food := NewFood(w.NextFoodID)
 	w.Food[food.ID] = food
 	w.NextFoodID++
+}
+
+// SpawnPowerupIfNeeded spawns powerups if below target count
+func (w *World) SpawnPowerupIfNeeded() {
+	toSpawn := MaxPowerupCount - len(w.Powerups)
+	if toSpawn > 0 {
+		for i := 0; i < toSpawn; i++ {
+			w.SpawnPowerup()
+		}
+	}
+}
+
+// SpawnPowerup creates a new powerup item
+func (w *World) SpawnPowerup() {
+	powerup := NewPowerup(w.NextPowerupID)
+	w.Powerups[powerup.ID] = powerup
+	w.NextPowerupID++
 }
 
 // BroadcastState sends game state without leaderboard
@@ -415,6 +534,8 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 		Alive:    player.Alive,
 		Seq:      player.LastSeq,
 		Model:    player.Model,
+		PowerupActive: player.PowerupActive,
+		PowerupDuration: player.PowerupDuration,
 	}
 
 	if !player.Alive {
@@ -453,6 +574,7 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 				Y:        other.Position.Y,
 				VelX:     other.Velocity.X,
 				VelY:     other.Velocity.Y,
+				PowerupActive: other.PowerupActive,
 				Rotation: other.Rotation,
 				Size:     other.Size,
 				// Name and Model removed - sent once via PlayerInfo
@@ -482,10 +604,22 @@ func (w *World) BuildStateForPlayer(player *Player, leaderboard []LeaderboardEnt
 		}
 	}
 
+	// Powerups - send all powerups (not limited by view distance for minimap)
+	powerups := make([]PowerupState, 0)
+	for _, p := range w.Powerups {
+		powerups = append(powerups, PowerupState{
+			ID: p.ID,
+			X:  p.Position.X,
+			Y:  p.Position.Y,
+			R:  p.Size,
+		})
+	}
+
 	return GameStatePayload{
 		You:         you,
 		Others:      others,
 		Food:        food,
+		Powerups:    powerups,
 		Leaderboard: leaderboard,
 	}
 }

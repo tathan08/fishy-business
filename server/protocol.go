@@ -33,6 +33,7 @@ type GameStatePayload struct {
 	You         PlayerState        `json:"you"`
 	Others      []OtherPlayerState `json:"others"`
 	Food        []FoodState        `json:"food"`
+	Powerups    []PowerupState     `json:"powerups"`
 	Leaderboard []LeaderboardEntry `json:"leaderboard"`
 }
 
@@ -52,6 +53,8 @@ type PlayerState struct {
 	Model      string   `json:"model,omitempty"`
 	KilledBy   *string  `json:"killedBy,omitempty"`
 	RespawnIn  *float64 `json:"respawnIn,omitempty"`
+	PowerupActive bool  `json:"powerupActive,omitempty"`
+	PowerupDuration float64 `json:"powerupDuration,omitempty"`
 }
 
 // OtherPlayerState represents another player's state
@@ -65,10 +68,19 @@ type OtherPlayerState struct {
 	Rotation float64 `json:"rotation"`
 	Size     float64 `json:"size"`
 	Model    string  `json:"model,omitempty"`
+	PowerupActive bool `json:"powerupActive,omitempty"`
 }
 
 // FoodState represents a food item's state
 type FoodState struct {
+	ID uint64  `json:"id"`
+	X  float64 `json:"x"`
+	Y  float64 `json:"y"`
+	R  float64 `json:"r"`
+}
+
+// PowerupState represents a powerup item's state
+type PowerupState struct {
 	ID uint64  `json:"id"`
 	X  float64 `json:"x"`
 	Y  float64 `json:"y"`
@@ -140,7 +152,7 @@ func encodeWelcome(payload WelcomePayload) ([]byte, error) {
 
 func encodeGameState(state GameStatePayload) ([]byte, error) {
 	// Estimate size (no leaderboard - sent separately)
-	capacity := 1 + 64 + len(state.Others)*32 + len(state.Food)*20
+	capacity := 1 + 64 + len(state.Others)*32 + len(state.Food)*20 + len(state.Powerups)*20
 	buf := make([]byte, 0, capacity)
 	
 	buf = append(buf, MsgTypeState)
@@ -158,6 +170,12 @@ func encodeGameState(state GameStatePayload) ([]byte, error) {
 	buf = append(buf, byte(len(state.Food)>>8), byte(len(state.Food)))
 	for _, food := range state.Food {
 		buf = encodeFoodState(buf, food)
+	}
+	
+	// Encode powerups count + data
+	buf = append(buf, byte(len(state.Powerups)>>8), byte(len(state.Powerups)))
+	for _, powerup := range state.Powerups {
+		buf = encodePowerupState(buf, powerup)
 	}
 	
 	// Leaderboard is sent separately at lower frequency
@@ -220,6 +238,14 @@ func encodeFoodState(buf []byte, food FoodState) []byte {
 	buf = appendFloat32(buf, float32(food.X))
 	buf = appendFloat32(buf, float32(food.Y))
 	buf = appendFloat32(buf, float32(food.R))
+	return buf
+}
+
+func encodePowerupState(buf []byte, powerup PowerupState) []byte {
+	buf = appendUint64(buf, powerup.ID)
+	buf = appendFloat32(buf, float32(powerup.X))
+	buf = appendFloat32(buf, float32(powerup.Y))
+	buf = appendFloat32(buf, float32(powerup.R))
 	return buf
 }
 

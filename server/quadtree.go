@@ -173,3 +173,20 @@ func (fe *FoodEntity) GetRadius() float64 {
 func (fe *FoodEntity) GetID() string {
 	return string(rune(fe.ID))
 }
+
+// PowerupEntity wraps a Powerup to implement the Entity interface
+type PowerupEntity struct {
+	*Powerup
+}
+
+func (pe *PowerupEntity) GetPosition() Vec2 {
+	return pe.Position
+}
+
+func (pe *PowerupEntity) GetRadius() float64 {
+	return pe.Size
+}
+
+func (pe *PowerupEntity) GetID() string {
+	return string(rune(pe.ID))
+}
