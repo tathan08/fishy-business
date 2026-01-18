@@ -383,6 +383,7 @@ export class GameConnection {
         const alive = (flags & 1) !== 0;
         const hasKilledBy = (flags & 2) !== 0;
         const hasRespawnIn = (flags & 4) !== 0;
+        const powerupActive = (flags & 8) !== 0;
         
         // No ID, Name, Model - those are cached from welcome/playerInfo
         
@@ -401,6 +402,7 @@ export class GameConnection {
         // Optional fields
         let killedBy: string | undefined;
         let respawnIn: number | undefined;
+        let powerupDuration: number | undefined;
         
         if (hasKilledBy) {
             const { str, newOffset } = this.readString(view, offset);
@@ -413,8 +415,13 @@ export class GameConnection {
             offset += 4;
         }
         
+        if (powerupActive) {
+            powerupDuration = view.getFloat32(offset);
+            offset += 4;
+        }
+        
         return {
-            player: { x, y, velX, velY, rotation, size, score, alive, seq, killedBy, respawnIn },
+            player: { x, y, velX, velY, rotation, size, score, alive, seq, killedBy, respawnIn, powerupActive, powerupDuration },
             newOffset: offset
         };
     }
@@ -431,13 +438,16 @@ export class GameConnection {
         const rotation = view.getFloat32(offset); offset += 4;
         const size = view.getFloat32(offset); offset += 4;
         
+        // Powerup active flag
+        const powerupActive = view.getUint8(offset) === 1; offset += 1;
+        
         // Get cached name/model
         const cachedInfo = this.playerInfoCache.get(id);
         const name = cachedInfo?.name || 'Unknown';
         const model = cachedInfo?.model || 'swordfish';
         
         return {
-            other: { id, name, model, x, y, velX, velY, rotation, size },
+            other: { id, name, model, x, y, velX, velY, rotation, size, powerupActive },
             newOffset: offset
         };
     }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"math"
 	"sync"
 	"time"
@@ -91,14 +92,18 @@ func (p *Player) GetMouthHitbox() Circle {
 	
 	// Mouth radius is a fraction of the capped size
 	mouthRadius := cappedSize * config.MouthSizeRatio
-
-	// Swordfish powerup: increase range
-	if p.PowerupActive && p.Model == "swordfish" {
-		mouthRadius *= 1.5
-	}
 	
 	// Mouth position is offset in front of the fish
 	offsetDistance := cappedSize * config.MouthOffsetRatio
+
+	// Swordfish powerup: increase range AND offset
+	if p.PowerupActive && p.Model == "swordfish" {
+		log.Printf("SWORDFISH POWERUP: radius %.2f -> %.2f, offset %.2f -> %.2f", 
+			mouthRadius, mouthRadius*2.0, offsetDistance, offsetDistance*1.5)
+		mouthRadius *= 2.0       // Double the mouth radius
+		offsetDistance *= 1.5    // Extend the reach forward
+	}
+	
 	mouthX := p.Position.X + math.Cos(p.Rotation)*offsetDistance
 	mouthY := p.Position.Y + math.Sin(p.Rotation)*offsetDistance
 	

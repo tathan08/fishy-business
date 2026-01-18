@@ -184,7 +184,7 @@ func encodeGameState(state GameStatePayload) ([]byte, error) {
 }
 
 func encodePlayerState(buf []byte, player PlayerState) []byte {
-	// Flags byte: bit 0 = alive, bit 1 = has killedBy, bit 2 = has respawnIn
+	// Flags byte: bit 0 = alive, bit 1 = has killedBy, bit 2 = has respawnIn, bit 3 = powerupActive
 	flags := byte(0)
 	if player.Alive {
 		flags |= 1
@@ -194,6 +194,9 @@ func encodePlayerState(buf []byte, player PlayerState) []byte {
 	}
 	if player.RespawnIn != nil {
 		flags |= 4
+	}
+	if player.PowerupActive {
+		flags |= 8
 	}
 	buf = append(buf, flags)
 	
@@ -217,6 +220,9 @@ func encodePlayerState(buf []byte, player PlayerState) []byte {
 	if player.RespawnIn != nil {
 		buf = appendFloat32(buf, float32(*player.RespawnIn))
 	}
+	if player.PowerupActive {
+		buf = appendFloat32(buf, float32(player.PowerupDuration))
+	}
 	
 	return buf
 }
@@ -230,6 +236,14 @@ func encodeOtherPlayer(buf []byte, player OtherPlayerState) []byte {
 	buf = appendFloat32(buf, float32(player.VelY))
 	buf = appendFloat32(buf, float32(player.Rotation))
 	buf = appendFloat32(buf, float32(player.Size))
+	
+	// Add powerup active flag (1 byte)
+	if player.PowerupActive {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
+	}
+	
 	return buf
 }
 

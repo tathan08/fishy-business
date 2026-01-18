@@ -67,16 +67,27 @@ function drawPowerupEffect(
             ctx.rotate(angle);
             
             const config = HITBOX_CONFIGS.swordfish;
-            const mouthRadius = size * config.mouthSizeRatio * 1.5;
-            const mouthOffset = size * config.mouthOffsetRatio;
+            const mouthRadius = size * config.mouthSizeRatio * 2.0; // Match server: 2x radius
+            const mouthOffset = size * config.mouthOffsetRatio * 1.5; // Match server: 1.5x offset
             
-            ctx.shadowBlur = 15;
+            // Draw multiple rings for emphasis
+            ctx.shadowBlur = 20;
             ctx.shadowColor = '#ff0000';
-            ctx.strokeStyle = '#ff000066';
+            
+            // Outer ring
+            ctx.strokeStyle = '#ff000044';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(-mouthOffset, 0, mouthRadius * 1.2, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Inner ring
+            ctx.strokeStyle = '#ff000088';
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(-mouthOffset, 0, mouthRadius, 0, Math.PI * 2);
             ctx.stroke();
+            
             ctx.restore();
             break;
 
