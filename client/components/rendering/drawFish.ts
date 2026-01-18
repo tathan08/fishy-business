@@ -132,25 +132,38 @@ function drawPowerupEffect(
             break;
 
         case 'sacabambaspis':
-            // Ball form - draw 10 copies in a circle
+            // Ball form - draw 10 copies of the fish in a circle
             ctx.save();
+            const img = loadFishImage(model);
             for (let i = 0; i < 10; i++) {
                 const copyAngle = (i / 10) * Math.PI * 2;
-                const copyX = fish.x + Math.cos(copyAngle) * size * 1.5;
-                const copyY = fish.y + Math.sin(copyAngle) * size * 1.5;
+                const copyRadius = size * 2.5; // Distance from center
+                const copyX = fish.x + Math.cos(copyAngle) * copyRadius;
+                const copyY = fish.y + Math.sin(copyAngle) * copyRadius;
                 
-                ctx.globalAlpha = 0.5;
-                ctx.translate(copyX, copyY);
-                ctx.rotate(copyAngle + Math.PI / 2);
-                
-                // Draw small version
-                const img = loadFishImage(model);
+                // Draw fish image or fallback to circle
                 if (img && img.complete && img.naturalHeight !== 0) {
-                    const imgSize = size * 1.2;
+                    const imgSize = size * 2.0;
+                    ctx.save();
+                    ctx.translate(copyX, copyY);
+                    ctx.rotate(angle + copyAngle); // Rotate each copy
+                    ctx.globalAlpha = 0.8;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#00ffff';
                     ctx.drawImage(img, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+                    ctx.restore();
+                } else {
+                    // Fallback to circles
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#00ffff';
+                    ctx.fillStyle = '#00ffff44';
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(copyX, copyY, size * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
                 }
-                
-                ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
             }
             ctx.restore();
             break;
