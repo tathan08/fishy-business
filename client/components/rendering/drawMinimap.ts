@@ -32,7 +32,7 @@ export function drawMinimap(
     ctx.scale(scale, scale);
 
     // Draw world boundary on minimap
-    ctx.strokeStyle = '#ff6b6b';
+    ctx.strokeStyle = '#808080';
     ctx.lineWidth = 10;
     ctx.strokeRect(0, 0, worldWidth, worldHeight);
 

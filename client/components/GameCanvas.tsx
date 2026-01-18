@@ -97,7 +97,7 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                     offscreenCtx.drawImage(img, 0, 0, worldWidth, worldHeight);
 
                     // Draw world border on offscreen canvas
-                    offscreenCtx.strokeStyle = '#ff6b6b';
+                    offscreenCtx.strokeStyle = '#808080';
                     offscreenCtx.lineWidth = 20;
                     offscreenCtx.strokeRect(0, 0, worldWidth, worldHeight);
 
@@ -256,7 +256,7 @@ const GameCanvas = forwardRef<HTMLCanvasElement, Props>(
                     ctx.fillRect(0, 0, worldWidth, worldHeight);
 
                     // Draw world border
-                    ctx.strokeStyle = '#ff6b6b';
+                    ctx.strokeStyle = '#808080';
                     ctx.lineWidth = 20;
                     ctx.strokeRect(0, 0, worldWidth, worldHeight);
                 }

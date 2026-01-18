@@ -25,6 +25,7 @@ export default function RacingPage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     // Preload saca (right-facing) fish image for lane indicator
     const sacaImgRef = useRef<HTMLImageElement | null>(null);
+    const autoStartRef = useRef<boolean>(false);
 
     useEffect(() => {
         if (!sacaImgRef.current) {
@@ -33,6 +34,21 @@ export default function RacingPage() {
             img.onload = () => {
                 sacaImgRef.current = img;
             };
+        }
+    }, []);
+
+    // Auto-load username from sessionStorage ONLY if coming from game
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const fromGame = params.get('fromGame') === 'true';
+
+        if (fromGame) {
+            const storedUsername = sessionStorage.getItem('username');
+            if (storedUsername && storedUsername.trim()) {
+                setPlayerName(storedUsername);
+                setShowNameInput(false);
+                autoStartRef.current = true;
+            }
         }
     }, []);
 
@@ -49,7 +65,7 @@ export default function RacingPage() {
             // Connect to server FIRST (before face tracking)
             const serverUrl = process.env.NEXT_PUBLIC_RACING_WS_URL || "ws://localhost:8080/ws/racing";
             console.log("Connecting to racing server:", serverUrl);
-            
+
             const connection = new RacingConnection();
             connectionRef.current = connection;
 
@@ -133,7 +149,18 @@ export default function RacingPage() {
         setRaceState(null);
         setResults(null);
         setShowNameInput(true);
+        setPlayerName(""); // Clear the name state
+        sessionStorage.removeItem('username'); // Clear from storage
+        sessionStorage.removeItem('fishModel'); // Clear fish model too
     };
+
+    // Trigger auto-start if username was loaded from sessionStorage
+    useEffect(() => {
+        if (autoStartRef.current && playerName && !showNameInput && status === "idle") {
+            autoStartRef.current = false; // Prevent re-triggering
+            startRacing();
+        }
+    }, [playerName, showNameInput, status]);
 
     // Draw race visualization
     useEffect(() => {
@@ -212,7 +239,7 @@ export default function RacingPage() {
                         Fish Racing
                     </h1>
                     <p className="text-xl mb-4">Open and close your mouth to boost forward!</p>
-                    
+
                     <div className="space-y-4">
                         <input
                             type="text"
@@ -223,7 +250,7 @@ export default function RacingPage() {
                             className="w-full px-4 py-3 text-xl rounded-lg bg-blue-800 border-2 border-blue-600 focus:outline-none focus:border-blue-400"
                             autoFocus
                         />
-                        
+
                         <button
                             onClick={startRacing}
                             className="w-full px-8 py-4 text-xl font-bold rounded-lg bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 transition-all transform hover:scale-105"
@@ -261,7 +288,7 @@ export default function RacingPage() {
                 <div className="text-center space-y-6">
                     <h1 className="text-4xl font-bold">⏳ Lobby</h1>
                     <p className="text-xl">Click Ready when you're set!</p>
-                    
+
                     <button
                         onClick={() => {
                             console.log("Ready button clicked, isReady:", isReady);
@@ -271,11 +298,10 @@ export default function RacingPage() {
                             }
                         }}
                         disabled={isReady}
-                        className={`text-3xl font-bold px-12 py-6 rounded-lg transition-all transform ${
-                            isReady 
-                                ? "bg-green-600 cursor-not-allowed opacity-75" 
-                                : "bg-blue-600 hover:bg-blue-700 hover:scale-105"
-                        }`}
+                        className={`text-3xl font-bold px-12 py-6 rounded-lg transition-all transform ${isReady
+                            ? "bg-green-600 cursor-not-allowed opacity-75"
+                            : "bg-blue-600 hover:bg-blue-700 hover:scale-105"
+                            }`}
                     >
                         {isReady ? `✅ Ready! ${readyCount}/${totalPlayers}` : `Ready? ${readyCount}/${totalPlayers}`}
                     </button>
@@ -327,40 +353,39 @@ export default function RacingPage() {
             <div className="min-h-screen flex flex-col bg-gradient-to-b from-purple-900 to-blue-950 text-white p-4">
                 <div className="flex-1 flex flex-col">
                     <h1 className="text-4xl font-bold text-center mb-4">🏁 Fish Racing!</h1>
-                    
+
                     {/* Mouth state indicator */}
                     <div className="text-center mb-4">
-                        <div className={`inline-block px-8 py-4 rounded-full text-2xl font-bold transition-all ${
-                            mouthOpen 
-                                ? "bg-green-500 scale-110" 
-                                : "bg-gray-600 scale-100"
-                        }`}>
+                        <div className={`inline-block px-8 py-4 rounded-full text-2xl font-bold transition-all ${mouthOpen
+                            ? "bg-green-500 scale-110"
+                            : "bg-gray-600 scale-100"
+                            }`}>
                             {mouthOpen ? "🚀 BOOSTING!" : "😐 Open Mouth to Boost"}
                         </div>
-                        
+
                         {/* Debug data display */}
                         {debugData && (
                             <div className="mt-4 p-4 bg-black bg-opacity-50 rounded-lg inline-block text-left font-mono text-sm">
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                     <span className="text-gray-400">Vertical Distance:</span>
                                     <span className="text-white font-bold">{debugData.verticalDist.toFixed(4)}</span>
-                                    
+
                                     <span className="text-gray-400">Horizontal Distance:</span>
                                     <span className="text-white font-bold">{debugData.horizontalDist.toFixed(4)}</span>
-                                    
+
                                     <span className="text-gray-400">Aspect Ratio:</span>
                                     <span className={`font-bold ${debugData.aspectRatio > debugData.threshold ? 'text-green-400' : 'text-red-400'}`}>
                                         {debugData.aspectRatio.toFixed(4)}
                                     </span>
-                                    
+
                                     <span className="text-gray-400">Threshold:</span>
                                     <span className="text-yellow-400 font-bold">{debugData.threshold.toFixed(4)}</span>
-                                    
+
                                     <span className="text-gray-400">Mouth State:</span>
                                     <span className={`font-bold ${mouthOpen ? 'text-green-400' : 'text-red-400'}`}>
                                         {mouthOpen ? "OPEN" : "CLOSED"}
                                     </span>
-                                    
+
                                     <span className="text-gray-400">Cycles:</span>
                                     <span className="text-cyan-400 font-bold text-xl">
                                         {cycleCount} / 50
@@ -396,19 +421,18 @@ export default function RacingPage() {
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-yellow-900 to-orange-950 text-white p-4">
                 <div className="text-center space-y-6 max-w-2xl">
                     <h1 className="text-5xl font-bold mb-8">🏆 Race Finished!</h1>
-                    
+
                     <div className="bg-yellow-800 rounded-lg p-6">
                         <h2 className="text-3xl font-bold mb-4">Final Results</h2>
                         <div className="space-y-4">
                             {results.results.map((result, index) => (
                                 <div
                                     key={result.playerId}
-                                    className={`p-4 rounded-lg ${
-                                        index === 0 ? "bg-yellow-600" :
+                                    className={`p-4 rounded-lg ${index === 0 ? "bg-yellow-600" :
                                         index === 1 ? "bg-gray-400" :
-                                        index === 2 ? "bg-orange-600" :
-                                        "bg-blue-700"
-                                    }`}
+                                            index === 2 ? "bg-orange-600" :
+                                                "bg-blue-700"
+                                        }`}
                                 >
                                     <div className="flex justify-between items-center">
                                         <div className="text-left">
